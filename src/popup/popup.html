@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="popup.css">
+  <title>IMDB List Injector</title>
+</head>
+<body>
+
+  <!-- VIEW: HOME -->
+  <div id="view-home" class="view active">
+    <header class="header">
+      <h1 class="header-title">IMDB List Injector</h1>
+      <div class="header-actions">
+        <button id="btn-prefs" class="icon-btn" title="Preferences">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="3.5"/>
+            <rect x="7" y="0.5" width="2" height="2" rx="0.5"/>
+            <rect x="7" y="13.5" width="2" height="2" rx="0.5"/>
+            <rect x="0.5" y="7" width="2" height="2" rx="0.5"/>
+            <rect x="13.5" y="7" width="2" height="2" rx="0.5"/>
+            <rect x="2" y="2" width="1.5" height="1.5" rx="0.3" transform="rotate(45 2.75 2.75)"/>
+            <rect x="12.5" y="12.5" width="1.5" height="1.5" rx="0.3" transform="rotate(45 13.25 13.25)"/>
+            <rect x="12.5" y="2" width="1.5" height="1.5" rx="0.3" transform="rotate(-45 13.25 2.75)"/>
+            <rect x="2" y="12.5" width="1.5" height="1.5" rx="0.3" transform="rotate(-45 2.75 13.25)"/>
+          </svg>
+        </button>
+        <button id="btn-add" class="btn-primary-sm">Add List</button>
+      </div>
+    </header>
+
+    <div id="list-area" class="list-area">
+      <div id="home-status" class="home-status hidden"></div>
+      <div id="empty-state" class="empty-state">
+        <p>No lists saved yet.</p>
+        <p class="empty-hint">Click Add List to get started.</p>
+      </div>
+      <div id="lists-container"></div>
+    </div>
+
+    <footer class="footer">
+      <button id="btn-export" class="btn-footer">Export Backup</button>
+      <button id="btn-import" class="btn-footer">Import Backup</button>
+    </footer>
+  </div>
+
+  <!-- VIEW: ADD LIST -->
+  <div id="view-add" class="view">
+    <header class="header">
+      <button id="btn-back-add" class="icon-btn" title="Back">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 3L5 8l5 5"/>
+        </svg>
+      </button>
+      <h1 class="header-title">Add List</h1>
+      <div class="header-actions"></div>
+    </header>
+
+    <div class="form-area">
+      <label class="label" for="url-input">IMDB List URL</label>
+      <input id="url-input" class="input" type="url" placeholder="https://www.imdb.com/list/ls..." spellcheck="false" autocomplete="off">
+      <div id="url-hint" class="url-hint"></div>
+
+      <button id="fetch-btn" class="btn-fetch">
+        <span id="fetch-text">Fetch List</span>
+        <div id="fetch-spinner" class="spinner hidden"></div>
+      </button>
+
+      <div id="error-msg" class="error-msg hidden"></div>
+
+      <div id="preview-section" class="preview-card hidden">
+        <div class="preview-info">
+          <span id="preview-name" class="preview-name"></span>
+          <span id="preview-count" class="preview-count"></span>
+        </div>
+        <button id="save-btn" class="btn-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: PREFERENCES -->
+  <div id="view-prefs" class="view">
+    <header class="header">
+      <button id="btn-back-prefs" class="icon-btn" title="Back">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 3L5 8l5 5"/>
+        </svg>
+      </button>
+      <h1 class="header-title">Preferences</h1>
+      <div class="header-actions"></div>
+    </header>
+
+    <div class="form-area">
+      <label class="label" for="pref-format">Default Format</label>
+      <select id="pref-format" class="input">
+        <option value="csv">CSV</option>
+        <option value="json">JSON</option>
+        <option value="plain">Plain Text</option>
+        <option value="markdown">Markdown Table</option>
+      </select>
+      <span class="label-hint">
+        Used for copy and download actions.
+      </span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

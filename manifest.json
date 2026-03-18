@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "IMDB List Injector",
+  "version": "1.1.0",
+  "description": "Save IMDB lists and inject them into AI chat interfaces.",
+
+  "permissions": [
+    "storage",
+    "clipboardWrite",
+    "downloads",
+    "sidePanel"
+  ],
+
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://www.imdb.com; object-src 'none';"
+  },
+
+  "side_panel": {
+    "default_path": "src/popup/popup.html"
+  },
+
+  "host_permissions": [
+    "https://www.imdb.com/*",
+    "https://chatgpt.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://grok.com/*"
+  ],
+
+  "background": {
+    "service_worker": "src/background.js"
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "action": {
+    "default_title": "IMDB List Injector",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
+}
