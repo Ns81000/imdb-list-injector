@@ -193,43 +193,42 @@
       if (response && response.success && response.data && response.data.movies) {
         currentPreview = response.data;
         showPreview(response.data);
+
+        const listData = {
+          id: generateId(currentUrl),
+          name: String(currentPreview.listName || 'Untitled List').slice(0, 500),
+          url: currentUrl,
+          movies: Array.isArray(currentPreview.movies) ? currentPreview.movies.slice(0, 10000) : [],
+          movieCount: currentPreview.movies.length,
+          lastRefreshed: new Date().toISOString(),
+          thumbnail: null
+        };
+
+        if (listData.movies.length === 0) {
+          showError('Cannot save list with no movies.');
+          return;
+        }
+
+        setLoading(true);
+        $('#fetch-btn').disabled = true;
+
+        chrome.runtime.sendMessage({ type: 'SAVE_LIST', listData }, (saveResponse) => {
+          setLoading(false);
+          $('#fetch-btn').disabled = false;
+
+          if (chrome.runtime.lastError) {
+            showError(`Save failed: ${chrome.runtime.lastError.message}`);
+            return;
+          }
+          if (!saveResponse || !saveResponse.success) {
+            showError(`Save failed: ${saveResponse?.error || 'unknown error'}`);
+            return;
+          }
+          navigateTo('home');
+        });
       } else {
         showError((response && response.error) || 'Failed to fetch list. Please try again.');
       }
-    });
-  });
-
-  $('#save-btn').addEventListener('click', () => {
-    if (!currentPreview || !currentPreview.movies) return;
-    if ($('#save-btn').disabled) return;
-
-    const listData = {
-      id: generateId(currentUrl),
-      name: String(currentPreview.listName || 'Untitled List').slice(0, 500),
-      url: currentUrl,
-      movies: Array.isArray(currentPreview.movies) ? currentPreview.movies.slice(0, 10000) : [],
-      movieCount: currentPreview.movies.length,
-      lastRefreshed: new Date().toISOString(),
-      thumbnail: null
-    };
-
-    if (listData.movies.length === 0) {
-      showError('Cannot save list with no movies.');
-      return;
-    }
-
-    $('#save-btn').disabled = true;
-    chrome.runtime.sendMessage({ type: 'SAVE_LIST', listData }, (response) => {
-      $('#save-btn').disabled = false;
-      if (chrome.runtime.lastError) {
-        showError(`Save failed: ${chrome.runtime.lastError.message}`);
-        return;
-      }
-      if (!response || !response.success) {
-        showError(`Save failed: ${response?.error || 'unknown error'}`);
-        return;
-      }
-      navigateTo('home');
     });
   });
 
