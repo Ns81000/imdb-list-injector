@@ -41,18 +41,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'GET_LISTS') {
     chrome.storage.local.get('imdb_lists', (data) => {
-      sendResponse({ lists: data.imdb_lists || [] });
+      if (chrome.runtime.lastError) {
+        sendResponse({ lists: [], error: chrome.runtime.lastError.message });
+      } else {
+        sendResponse({ lists: data.imdb_lists || [] });
+      }
     });
     return true;
   }
 
   if (message.type === 'SAVE_LIST') {
-    saveList(message.listData).then(() => sendResponse({ success: true }));
+    saveList(message.listData)
+      .then(() => sendResponse({ success: true }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
 
   if (message.type === 'DELETE_LIST') {
-    deleteList(message.listId).then(() => sendResponse({ success: true }));
+    deleteList(message.listId)
+      .then(() => sendResponse({ success: true }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
 
@@ -119,10 +127,11 @@ async function fetchAndParseSinglePage(url, timeoutMs = 20000) {
   try {
     const response = await fetch(url, {
       signal: controller.signal,
+      // Note: User-Agent is a forbidden header in fetch() and is silently
+      // dropped by Chrome, so it is not set here.
       headers: {
         'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'User-Agent': 'Mozilla/5.0'
+        'Accept-Language': 'en-US,en;q=0.9'
       }
     });
 

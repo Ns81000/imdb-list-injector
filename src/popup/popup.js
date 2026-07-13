@@ -52,22 +52,22 @@
           <div class="list-card-info">
             <div class="list-card-name">
               ${escapeHtml(list.name)}
-              <span class="list-card-count">${list.movieCount || 0}</span>
+              <span class="list-card-count">${Number(list.movieCount) || 0}</span>
             </div>
-            <div class="list-card-meta">${formatRelativeTime(list.lastRefreshed)}</div>
+            <div class="list-card-meta">${escapeHtml(formatRelativeTime(list.lastRefreshed))}</div>
             <div class="list-card-actions-row">
               <button class="list-action-btn copy-btn" data-idx="${idx}" title="Copy formatted list">Copy</button>
               <button class="list-action-btn download-btn" data-idx="${idx}" title="Download formatted list">Download</button>
             </div>
           </div>
           <div class="list-card-actions">
-            <button class="icon-btn refresh-btn" data-id="${list.id}" data-url="${escapeHtml(list.url)}" title="Refresh">
+            <button class="icon-btn refresh-btn" data-id="${escapeHtml(list.id)}" data-url="${escapeHtml(list.url)}" title="Refresh">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M1 2v5h5"/>
                 <path d="M3.51 10a5.5 5.5 0 1 0 .68-5.97L1 7"/>
               </svg>
             </button>
-            <button class="icon-btn delete delete-btn" data-id="${list.id}" title="Delete">
+            <button class="icon-btn delete delete-btn" data-id="${escapeHtml(list.id)}" title="Delete">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
                 <path d="M4 4l8 8M12 4l-8 8"/>
               </svg>
@@ -225,6 +225,10 @@
         showError(`Save failed: ${chrome.runtime.lastError.message}`);
         return;
       }
+      if (!response || !response.success) {
+        showError(`Save failed: ${response?.error || 'unknown error'}`);
+        return;
+      }
       navigateTo('home');
     });
   });
@@ -236,6 +240,10 @@
     chrome.runtime.sendMessage({ type: 'DELETE_LIST', listId }, (response) => {
       if (chrome.runtime.lastError) {
         showHomeStatus(`Delete failed: ${chrome.runtime.lastError.message}`, true);
+        return;
+      }
+      if (!response || !response.success) {
+        showHomeStatus(`Delete failed: ${response?.error || 'unknown error'}`, true);
         return;
       }
       renderLists();
@@ -303,10 +311,20 @@
           throw new Error('File too large (max 50MB)');
         }
         const raw = await file.text();
-        const imported = JSON.parse(raw);
-        if (!Array.isArray(imported)) throw new Error('Backup must be a JSON array');
-        if (imported.length === 0) throw new Error('Backup is empty');
-        if (imported.length > 10000) throw new Error('Too many lists (max 10000)');
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) throw new Error('Backup must be a JSON array');
+        if (parsed.length === 0) throw new Error('Backup is empty');
+        if (parsed.length > 10000) throw new Error('Too many lists (max 10000)');
+
+        // Never trust the file: sanitize every field before it is stored or
+        // rendered. Drops entries that cannot be salvaged into a valid list.
+        const imported = parsed
+          .map(sanitizeImportedList)
+          .filter(Boolean);
+
+        if (imported.length === 0) {
+          throw new Error('No valid lists found in backup');
+        }
 
         await new Promise((resolve, reject) => {
           chrome.storage.local.set({ imdb_lists: imported }, () => {
@@ -319,7 +337,9 @@
         });
 
         renderLists();
-        showHomeStatus(`Imported ${imported.length} list${imported.length === 1 ? '' : 's'} from backup.`);
+        const skipped = parsed.length - imported.length;
+        const skipNote = skipped > 0 ? ` (${skipped} invalid skipped)` : '';
+        showHomeStatus(`Imported ${imported.length} list${imported.length === 1 ? '' : 's'} from backup${skipNote}.`);
       } catch (err) {
         showHomeStatus(`Import failed: ${err.message || 'invalid backup file'}.`, true);
       } finally {
@@ -521,6 +541,61 @@
     return /^https?:\/\/(www\.)?imdb\.com\/list\/ls\d+/.test(url);
   }
 
+  const str = (v, max) => String(v == null ? '' : v).slice(0, max);
+
+  // Coerce an untrusted movie object into the known shape with bounded fields.
+  function sanitizeMovieRecord(m) {
+    if (!m || typeof m !== 'object') return null;
+    return {
+      position:       str(m.position, 12),
+      imdb_id:        str(m.imdb_id, 20),
+      type:           str(m.type, 40),
+      title:          str(m.title, 500),
+      year:           str(m.year, 12),
+      rating:         str(m.rating, 12),
+      votes:          str(m.votes, 20),
+      genre:          str(m.genre, 300),
+      content_rating: str(m.content_rating, 40),
+      duration:       str(m.duration, 40),
+      description:    str(m.description, 2000),
+      imdb_url:       str(m.imdb_url, 500)
+    };
+  }
+
+  // Coerce an untrusted list object from an imported backup. Returns null when
+  // the entry has no usable movies. A non-IMDB url is dropped to '' so it can
+  // never be rendered as an attribute or reused for a network refresh.
+  function sanitizeImportedList(list) {
+    if (!list || typeof list !== 'object') return null;
+
+    const movies = (Array.isArray(list.movies) ? list.movies : [])
+      .slice(0, 10000)
+      .map(sanitizeMovieRecord)
+      .filter(Boolean);
+
+    if (movies.length === 0) return null;
+
+    const url = isValidIMDBListUrl(list.url) ? list.url : '';
+    const rawId = str(list.id, 60).trim();
+    const id = rawId || generateId(url || '');
+
+    let lastRefreshed = null;
+    if (list.lastRefreshed) {
+      const t = new Date(list.lastRefreshed).getTime();
+      if (Number.isFinite(t)) lastRefreshed = new Date(t).toISOString();
+    }
+
+    return {
+      id,
+      name: str(list.name, 500) || 'Untitled List',
+      url,
+      movies,
+      movieCount: movies.length,
+      lastRefreshed,
+      thumbnail: null
+    };
+  }
+
   function generateId(url) {
     const match = url.match(/ls\d+/);
     return match ? match[0] : 'list-' + Date.now();
@@ -551,7 +626,11 @@
   function formatRelativeTime(isoStr) {
     if (!isoStr) return 'Never refreshed';
 
-    const diff = Date.now() - new Date(isoStr).getTime();
+    const then = new Date(isoStr).getTime();
+    if (!Number.isFinite(then)) return 'Never refreshed';
+
+    const diff = Date.now() - then;
+    if (diff < 0) return 'Just now'; // clock skew / future timestamp
     const mins = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
@@ -560,13 +639,18 @@
     if (mins < 60) return `${mins}m ago`;
     if (hours < 24) return `${hours}h ago`;
     if (days < 30) return `${days}d ago`;
-    return new Date(isoStr).toLocaleDateString();
+    return new Date(then).toLocaleDateString();
   }
 
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
+  // Escapes for BOTH text and attribute contexts (quotes included), so values
+  // interpolated into template-string HTML cannot break out of an attribute.
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // --- Format converters ---
@@ -576,19 +660,23 @@
       'Position','IMDB_ID','Type','Title','Year','IMDB_Rating',
       'Votes','Genre','Content_Rating','Duration','Description','IMDB_URL'
     ];
-    const esc = (s) => {
-      const str = String(s || '').slice(0, 1000);
-      return `"${str.replace(/"/g, "'").replace(/\r?\n/g, ' ')}"`;
+    // Every field is quoted and guarded against CSV formula injection: a cell
+    // beginning with = + - @ (or tab/CR) is prefixed with ' so spreadsheet
+    // apps treat it as text rather than executing it as a formula.
+    const cell = (s) => {
+      let v = String(s == null ? '' : s).slice(0, 1000).replace(/\r?\n/g, ' ');
+      if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+      return `"${v.replace(/"/g, '""')}"`;
     };
-    const rows = [headers.join(',')];
+    const rows = [headers.map(cell).join(',')];
     for (const m of movies.slice(0, 10000)) {
       rows.push([
-        m.position, m.imdb_id, m.type, esc(m.title), m.year,
-        m.rating, m.votes, esc(m.genre), m.content_rating,
-        m.duration, esc(m.description), m.imdb_url
-      ].join(','));
+        m.position, m.imdb_id, m.type, m.title, m.year,
+        m.rating, m.votes, m.genre, m.content_rating,
+        m.duration, m.description, m.imdb_url
+      ].map(cell).join(','));
     }
-    return `# IMDB List: ${listName}\n# Total: ${movies.length} items\n\n` + rows.join('\n');
+    return `# IMDB List: ${String(listName || 'IMDB List').slice(0, 200)}\n# Total: ${movies.length} items\n\n` + rows.join('\n');
   }
 
   function toJSON(listName, movies) {
@@ -630,15 +718,21 @@
     const header = `## IMDB List: ${String(listName || 'IMDB List').slice(0, 200)}\n\n`;
     const cols = ['#', 'Type', 'Title', 'Year', 'Rating', 'Genre', 'Duration', 'Description'];
     const sep = cols.map(() => '---');
+    // Escape pipes and collapse newlines so a value can't break out of its cell.
+    const cell = (s, max) =>
+      String(s == null ? '' : s).slice(0, max).replace(/\r?\n/g, ' ').replace(/\|/g, '\\|');
+    // A url only needs its closing paren / whitespace neutralised inside ( ).
+    const urlCell = (s) =>
+      String(s == null ? '' : s).slice(0, 500).replace(/[\s()]/g, encodeURIComponent);
     const rows = movies.slice(0, 10000).map((m) => [
-      m.position,
-      String(m.type || '').slice(0, 30),
-      `[${String(m.title || '').slice(0, 100)}](${String(m.imdb_url || '').slice(0, 500)})`,
-      m.year,
-      m.rating,
-      String(m.genre || '').slice(0, 100),
-      m.duration,
-      String(m.description || '').slice(0, 200)
+      cell(m.position, 12),
+      cell(m.type, 30),
+      `[${cell(m.title, 100)}](${urlCell(m.imdb_url)})`,
+      cell(m.year, 12),
+      cell(m.rating, 12),
+      cell(m.genre, 100),
+      cell(m.duration, 40),
+      cell(m.description, 200)
     ]);
     const tableLines = [
       `| ${cols.join(' | ')} |`,
