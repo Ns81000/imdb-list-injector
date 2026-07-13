@@ -127,8 +127,12 @@ async function fetchAndParseSinglePage(url, timeoutMs = 20000) {
   try {
     const response = await fetch(url, {
       signal: controller.signal,
-      // Note: User-Agent is a forbidden header in fetch() and is silently
-      // dropped by Chrome, so it is not set here.
+      // Send the browser's imdb.com cookies so the request is treated like a
+      // real logged-in visit. Without this IMDb's bot protection (AWS WAF)
+      // serves a challenge page instead of the list. Note: User-Agent is a
+      // forbidden fetch header and is silently dropped by Chrome, so it is not
+      // set here — Chrome supplies its real browser User-Agent automatically.
+      credentials: 'include',
       headers: {
         'Accept': 'text/html,application/xhtml+xml',
         'Accept-Language': 'en-US,en;q=0.9'
@@ -143,10 +147,21 @@ async function fetchAndParseSinglePage(url, timeoutMs = 20000) {
     if (!html || html.length === 0) {
       throw new Error('Empty response');
     }
+    if (isBotChallenge(html)) {
+      throw new Error('IMDb returned a bot-check page. Open imdb.com in a browser tab, make sure you can view the list there, then try again.');
+    }
     return parseIMDBList(html);
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+// IMDb (AWS WAF) sometimes returns a tiny JavaScript "verify you're not a robot"
+// page with HTTP 200. It has no list data, so detect it and surface an accurate
+// error instead of the misleading "No movies found".
+function isBotChallenge(html) {
+  if (html.length > 20000) return false; // real list pages are far larger
+  return /awswaf|challenge-container|AwsWafIntegration|Enable JavaScript/i.test(html);
 }
 
 function withPageParam(url, page) {

@@ -380,13 +380,102 @@
 
   $('#pref-format').addEventListener('change', savePrefs);
 
+  // --- Field coercion (safety net for older saved lists) ---
+  // Lists saved before the parser fix may hold a description (or other field)
+  // as an IMDb rich-text OBJECT instead of a string. Coerce every field to a
+  // clean string here so exports never emit "[object Object]" — no re-fetch
+  // required.
+  const decodeEntities = (s) =>
+    String(s)
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&(?:apos|#0*39);/gi, "'")
+      .replace(/&#(\d+);/g, (_, n) => { try { return String.fromCodePoint(+n); } catch { return ''; } })
+      .replace(/&#x([0-9a-f]+);/gi, (_, n) => { try { return String.fromCodePoint(parseInt(n, 16)); } catch { return ''; } });
+
+  // Clean an HTML/markdown string: drop tags, decode entities, collapse space.
+  const cleanHtml = (s) =>
+    decodeEntities(String(s).replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim();
+
+  function extractText(v) {
+    if (v == null) return '';
+    if (typeof v === 'string') {
+      const cleanV = v.trim().toLowerCase();
+      if (cleanV.includes('[object object]') || cleanV === '[object object]') return '';
+      return v;
+    }
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    if (typeof v === 'object') {
+      // Plain-text variants are used verbatim.
+      const plain = [
+        v.plainText,
+        v.originalText && v.originalText.plainText,
+        v.text,
+        v.value
+      ];
+      for (const c of plain) {
+        if (typeof c === 'string' && c) return c;
+      }
+      // HTML/markdown variants are stripped and entity-decoded.
+      const html = [
+        v.plaidHtml,
+        v.originalText && v.originalText.plaidHtml,
+        v.markdown
+      ];
+      for (const c of html) {
+        if (typeof c === 'string' && c) return cleanHtml(c);
+      }
+    }
+    return '';
+  }
+
+  const scalarField = (v) => (v != null && typeof v === 'object') ? extractText(v) : (v == null ? '' : v);
+
+  function normalizeMovies(movies) {
+    if (!Array.isArray(movies)) return [];
+    return movies.map((m) => {
+      if (!m || typeof m !== 'object') return {};
+      let desc = m.description;
+      if (desc != null && typeof desc === 'object') {
+        desc = extractText(desc);
+      }
+      if (typeof desc === 'string') {
+        const clean = desc.trim().toLowerCase();
+        if (clean.includes('[object object]') || clean === '[object object]') {
+          desc = '';
+        }
+      } else {
+        desc = '';
+      }
+      return {
+        position:       scalarField(m.position),
+        imdb_id:        scalarField(m.imdb_id),
+        type:           scalarField(m.type),
+        title:          scalarField(m.title),
+        year:           scalarField(m.year),
+        rating:         scalarField(m.rating),
+        votes:          scalarField(m.votes),
+        genre:          scalarField(m.genre),
+        content_rating: scalarField(m.content_rating),
+        duration:       scalarField(m.duration),
+        description:    desc,
+        imdb_url:       scalarField(m.imdb_url)
+      };
+    });
+  }
+
   function buildFormattedContent(list, format) {
+    const movies = normalizeMovies(list.movies || []);
+    const name = list.name;
     switch (format) {
-      case 'csv': return toCSV(list.name, list.movies || []);
-      case 'json': return toJSON(list.name, list.movies || []);
-      case 'plain': return toPlainText(list.name, list.movies || []);
-      case 'markdown': return toMarkdownTable(list.name, list.movies || []);
-      default: return toCSV(list.name, list.movies || []);
+      case 'csv': return toCSV(name, movies);
+      case 'json': return toJSON(name, movies);
+      case 'plain': return toPlainText(name, movies);
+      case 'markdown': return toMarkdownTable(name, movies);
+      default: return toCSV(name, movies);
     }
   }
 
@@ -546,6 +635,18 @@
   // Coerce an untrusted movie object into the known shape with bounded fields.
   function sanitizeMovieRecord(m) {
     if (!m || typeof m !== 'object') return null;
+    let desc = m.description;
+    if (desc != null && typeof desc === 'object') {
+      desc = extractText(desc);
+    }
+    if (typeof desc === 'string') {
+      const clean = desc.trim().toLowerCase();
+      if (clean.includes('[object object]') || clean === '[object object]') {
+        desc = '';
+      }
+    } else {
+      desc = '';
+    }
     return {
       position:       str(m.position, 12),
       imdb_id:        str(m.imdb_id, 20),
@@ -557,7 +658,7 @@
       genre:          str(m.genre, 300),
       content_rating: str(m.content_rating, 40),
       duration:       str(m.duration, 40),
-      description:    str(m.description, 2000),
+      description:    desc,
       imdb_url:       str(m.imdb_url, 500)
     };
   }
@@ -742,7 +843,49 @@
     return header + tableLines.join('\n');
   }
 
+  // --- One-time storage migration ---
+  // Older saved lists may store a field (notably description) as an IMDb
+  // rich-text OBJECT. Rewrite those to clean strings in place so every surface
+  // (list, export, backup) is correct without needing a re-fetch. Runs once per
+  // load; only writes back when something actually changed.
+  const MOVIE_FIELDS = [
+    'position', 'imdb_id', 'type', 'title', 'year', 'rating',
+    'votes', 'genre', 'content_rating', 'duration', 'description', 'imdb_url'
+  ];
+
+  function migrateStoredLists() {
+    chrome.storage.local.get('imdb_lists', (data) => {
+      if (chrome.runtime.lastError) return;
+      const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
+      let changed = false;
+
+      for (const list of lists) {
+        if (!list || !Array.isArray(list.movies)) continue;
+        for (const m of list.movies) {
+          if (!m || typeof m !== 'object') continue;
+          for (const key of MOVIE_FIELDS) {
+            const cleanVal = m[key] == null ? '' : String(m[key]).trim().toLowerCase();
+            if (cleanVal.includes('[object object]')) {
+              m[key] = '';
+              changed = true;
+            } else if (m[key] != null && typeof m[key] === 'object') {
+              m[key] = key === 'description' ? extractText(m[key]) : scalarField(m[key]);
+              changed = true;
+            }
+          }
+        }
+      }
+
+      if (changed) {
+        chrome.storage.local.set({ imdb_lists: lists }, () => {
+          if (!chrome.runtime.lastError) renderLists();
+        });
+      }
+    });
+  }
+
   // --- Init ---
 
+  migrateStoredLists();
   renderLists();
 })();

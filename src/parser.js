@@ -8,21 +8,93 @@ function parseIMDBList(html) {
   let movies = [], listName = 'IMDB List';
   let jsonLdResult = null;
 
+  const decodeEntities = (s) =>
+    String(s)
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&(?:apos|#0*39);/gi, "'")
+      .replace(/&#(\d+);/g, (_, n) => { try { return String.fromCodePoint(+n); } catch { return ''; } })
+      .replace(/&#x([0-9a-f]+);/gi, (_, n) => { try { return String.fromCodePoint(parseInt(n, 16)); } catch { return ''; } });
+
+  // Clean an HTML/markdown string: drop tags, decode entities, collapse space.
+  const cleanHtml = (s) =>
+    decodeEntities(String(s).replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim();
+
+  // Coerce an arbitrary IMDb text value into a clean plain string. IMDb delivers
+  // some fields (e.g. a list creator's per-item note) not as a string but as a
+  // nested "Markdown"/rich-text object such as:
+  //   { originalText: { plainText, plaidHtml }, plainText, ... }
+  // Plain-text variants are used verbatim; HTML/markdown variants are stripped
+  // and entity-decoded. Unknown object shapes collapse to '' — so a value can
+  // never leak to output as the literal "[object Object]".
+  const extractText = (v) => {
+    if (v == null) return '';
+    if (typeof v === 'string') {
+      const cleanV = v.trim().toLowerCase();
+      if (cleanV.includes('[object object]') || cleanV === '[object object]') return '';
+      return v;
+    }
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    if (typeof v === 'object') {
+      const plain = [
+        v.plainText,
+        v.originalText?.plainText,
+        v.text,
+        v.value
+      ];
+      for (const c of plain) {
+        if (typeof c === 'string' && c) return c;
+      }
+      const html = [
+        v.plaidHtml,
+        v.originalText?.plaidHtml,
+        v.markdown
+      ];
+      for (const c of html) {
+        if (typeof c === 'string' && c) return cleanHtml(c);
+      }
+    }
+    return '';
+  };
+
+  // Keep strings/numbers as-is; funnel any object through extractText so no
+  // field can ever serialize to "[object Object]".
+  const scalar = (v) => {
+    if (v == null) return '';
+    if (typeof v === 'object') return extractText(v);
+    return v;
+  };
+
   const sanitizeMovie = (m) => {
     if (!m || typeof m !== 'object') return null;
+    let desc = m.description;
+    if (desc != null && typeof desc === 'object') {
+      desc = extractText(desc);
+    }
+    if (typeof desc === 'string') {
+      const clean = desc.trim().toLowerCase();
+      if (clean.includes('[object object]') || clean === '[object object]') {
+        desc = '';
+      }
+    } else {
+      desc = '';
+    }
     return {
-      position: m.position ?? '',
-      imdb_id: m.imdb_id ?? '',
-      type: m.type ?? '',
-      title: m.title ?? '',
-      year: m.year ?? '',
-      rating: m.rating ?? '',
-      votes: m.votes ?? '',
-      genre: m.genre ?? '',
-      content_rating: m.content_rating ?? '',
-      duration: m.duration ?? '',
-      description: m.description ?? '',
-      imdb_url: m.imdb_url ?? ''
+      position:       scalar(m.position),
+      imdb_id:        scalar(m.imdb_id),
+      type:           scalar(m.type),
+      title:          scalar(m.title),
+      year:           scalar(m.year),
+      rating:         scalar(m.rating),
+      votes:          scalar(m.votes),
+      genre:          scalar(m.genre),
+      content_rating: scalar(m.content_rating),
+      duration:       scalar(m.duration),
+      description:    desc,
+      imdb_url:       scalar(m.imdb_url)
     };
   };
 
@@ -122,7 +194,7 @@ function parseIMDBList(html) {
             rating:      item.ratingsSummary?.aggregateRating || '',
             votes:       item.ratingsSummary?.voteCount || '',
             genre:       (item.genres?.genres || []).map(g => g?.text || g?.genre || '').filter(Boolean).join(', '),
-            description: item.plot?.plotText?.plainText || '',
+            description: extractText(item.plot?.plotText) || '',
             imdb_url:    `https://www.imdb.com/title/${item.id || ''}/`
           };
           const sanitized = sanitizeMovie(movie);
@@ -166,7 +238,10 @@ function parseIMDBList(html) {
             genre:          genres,
             content_rating: item.certificate?.rating || '',
             duration:       parseRuntimeFromSeconds(item.runtime?.seconds),
-            description:    node.description || item.plot?.plotText?.plainText || '',
+            // Use the title's plot SYNOPSIS for the description — never the
+            // creator's per-item note (node.description), which is a rich-text
+            // object and not what belongs in a description column.
+            description:    extractText(item.plot?.plotText) || '',
             imdb_url:       imdbId ? `https://www.imdb.com/title/${imdbId}/` : ''
           };
           const sanitized = sanitizeMovie(movie);
