@@ -882,15 +882,15 @@
 
   function toggleSlidePicker(force) {
     const picker = $('#slide-picker');
-    const open = force != null ? force : picker.classList.contains('hidden');
-    if (!open) { picker.classList.add('hidden'); return; }
+    const open = force != null ? force : !picker.classList.contains('is-open');
+    if (!open) { picker.classList.remove('is-open'); return; }
     // Build interval pills.
     renderPills($('#slide-intervals'), SLIDE_INTERVALS.map((i) => ({ value: String(i.value), label: i.label })), {
       selected: () => new Set([String(state.slideMs)]),
       onToggle: (v) => { state.slideMs = Number(v); toggleSlidePicker(false); startSlideshow(); },
       single: true
     });
-    picker.classList.remove('hidden');
+    picker.classList.add('is-open');
   }
 
   function startSlideshow() {
@@ -980,7 +980,7 @@
       // Close the slide picker on any outside click.
       document.addEventListener('pointerdown', (e) => {
         const picker = $('#slide-picker');
-        if (picker.classList.contains('hidden')) return;
+        if (!picker.classList.contains('is-open')) return;
         if (picker.contains(e.target) || $('#btn-slideshow').contains(e.target)) return;
         toggleSlidePicker(false);
       });
@@ -990,8 +990,8 @@
 
   function onKey(e) {
     if ($('#stage-player').classList.contains('hidden')) return;
-    const overlayOpen = !$('#filter-overlay').classList.contains('hidden');
-    const pickerOpen = !$('#slide-picker').classList.contains('hidden');
+    const overlayOpen = $('#filter-overlay').classList.contains('is-open');
+    const pickerOpen = $('#slide-picker').classList.contains('is-open');
     // Esc closes any open overlay/picker first.
     if (e.key === 'Escape') {
       if (overlayOpen) { closeFilterOverlay(); return; }
@@ -1014,7 +1014,7 @@
     toggleSlidePicker(false);
     buildFilterUI('pf', applyLiveFilter);
     updatePfMatch(state.ordered.length);
-    $('#filter-overlay').classList.remove('hidden');
+    $('#filter-overlay').classList.add('is-open');
     const closeBtn = $('#btn-filter-close');
     if (closeBtn) closeBtn.focus();
   }
@@ -1027,7 +1027,7 @@
   }
 
   function closeFilterOverlay() {
-    $('#filter-overlay').classList.add('hidden');
+    $('#filter-overlay').classList.remove('is-open');
   }
 
   // Re-apply the current config to the live playback without leaving the

@@ -709,3 +709,11 @@ select.input {
 .hidden {
   display: none !important;
 }
+
+/* Emil Kowalski active press scale feedback */
+.btn-primary-sm, .icon-btn, .list-action-btn, .btn-footer, .btn-fetch {
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s, background 0.15s, transform 0.1s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.btn-primary-sm:active, .icon-btn:active, .list-action-btn:active, .btn-footer:active, .btn-fetch:active {
+  transform: scale(0.96);
+}
