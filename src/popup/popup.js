@@ -371,6 +371,16 @@
           throw new Error('No valid lists found in backup');
         }
 
+        // Import restores (replaces) the whole library. Confirm before wiping an
+        // existing library so a mis-clicked import can't silently destroy data.
+        const existing = await new Promise((resolve) => {
+          chrome.storage.local.get('imdb_lists', (d) => resolve(Array.isArray(d?.imdb_lists) ? d.imdb_lists : []));
+        });
+        if (existing.length > 0 &&
+            !confirm(`This will replace your current ${existing.length} list${existing.length === 1 ? '' : 's'} with ${imported.length} from the backup. Continue?`)) {
+          return;
+        }
+
         await new Promise((resolve, reject) => {
           chrome.storage.local.set({ imdb_lists: imported }, () => {
             if (chrome.runtime.lastError) {

@@ -98,6 +98,21 @@ function parseIMDBList(html) {
     };
   };
 
+  // JSON-LD delivers the media type as a CamelCase schema.org token
+  // ("TVSeries", "TVEpisode"), while IMDb's __NEXT_DATA__ delivers a spaced
+  // human label ("TV Series"). Normalise the JSON-LD form to the spaced label so
+  // a list parsed via either strategy produces the SAME type facet (otherwise
+  // "TVSeries" and "TV Series" split into two facets on mixed-source data).
+  const humanizeType = (t) => {
+    const s = String(t || '').trim();
+    if (!s || s.includes(' ')) return s;
+    return s
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2') // TVSeries -> TV Series, TVMiniSeries -> TV MiniSeries
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')    // MiniSeries -> Mini Series, TvSeries -> Tv Series
+      .replace(/\bTv\b/g, 'TV')                  // Tv -> TV (mixed-case source)
+      .trim();
+  };
+
   const parseRuntimeFromISO8601 = (dur) => {
     if (!dur || typeof dur !== 'string') return '';
     const hMatch = dur.match(/(\d+)H/i);
@@ -146,13 +161,15 @@ function parseIMDBList(html) {
           const yearMatch = String(item.datePublished || '').match(/\d{4}/);
           const movie = {
             position:       entry?.position || (idx + 1),
-            imdb_id:        imdbUrl.split('/title/')[1]?.replace('/', '') || '',
-            type:           item['@type'] || '',
+            imdb_id:        (imdbUrl.split('/title/')[1] || '').split('/')[0].split('?')[0] || '',
+            type:           humanizeType(item['@type']),
             title:          item.name || '',
             year:           yearMatch ? yearMatch[0] : '',
             rating:         item.aggregateRating?.ratingValue || '',
             votes:          item.aggregateRating?.ratingCount || '',
-            genre:          Array.isArray(item.genre) ? item.genre.join(', ') : (item.genre || ''),
+            genre:          Array.isArray(item.genre)
+                              ? item.genre.map((g) => extractText(g)).filter(Boolean).join(', ')
+                              : extractText(item.genre),
             content_rating: item.contentRating || '',
             duration:       parseRuntimeFromISO8601(item.duration),
             description:    item.description || '',

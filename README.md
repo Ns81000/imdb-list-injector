@@ -1,6 +1,6 @@
 # IMDB List Injector
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue.svg?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.3.0-blue.svg?style=flat-square)
 ![Manifest](https://img.shields.io/badge/manifest-v3-green.svg?style=flat-square)
 ![Browser](https://img.shields.io/badge/browser-chrome-yellow.svg?style=flat-square)
 
@@ -24,7 +24,11 @@ Everything runs and is stored locally in your browser.
 - **Full-list pagination** — automatically fetches every page of large lists,
   not just the first 250 items.
 - **Local library** — save lists, refresh them on demand, and back up or restore
-  your whole library as JSON.
+  your whole library as JSON. Refresh also picks up a renamed list, and restoring
+  a backup asks for confirmation before it replaces an existing library.
+- **Forgiving URLs** — `http://`, `m.imdb.com`, and bare `imdb.com/list/ls…`
+  links are all normalized to the canonical `https://www.imdb.com` before
+  fetching, so a pasted link doesn't fail on a technicality.
 - **Private by design** — list data is stored locally and the parser only ever
   talks to `www.imdb.com`.
 
@@ -50,8 +54,13 @@ Everything runs and is stored locally in your browser.
 - **Auto slideshow** — shuffles through the whole list (covering every title
   once before repeating) at your chosen interval: **5s / 10s / 25s / 50s**.
 - **In-player filter panel** — a translucent side sheet lets you re-filter or
-  re-sort live without leaving the player; changes apply immediately and you
-  just close it to resume.
+  re-sort live without leaving the player; changes apply immediately, a live
+  match count shows how many titles qualify, and auto-advance pauses cleanly if
+  a filter matches nothing (resuming when it matches again).
+- **Never a black frame** — if a backdrop or poster fails to load, the player
+  falls back to a clean title placeholder instead of a black screen; if TMDB
+  rejects your key (401/403), you get a clear message rather than a silent
+  image-less slideshow.
 - **Keyboard controls** — `←/→` navigate, `Space` toggles the slideshow, `F`
   toggles fullscreen, `Esc` closes an open panel or exits.
 - **Respects `prefers-reduced-motion`** and works on desktop and mobile widths.
@@ -59,7 +68,8 @@ Everything runs and is stored locally in your browser.
 ### Security & privacy
 - **Bring your own TMDB key** — Immersive mode uses your own free TMDB API key.
 - **Encrypted at rest** — your key is encrypted with a passphrase using
-  **AES-GCM + PBKDF2** (Web Crypto). Only the ciphertext, salt, and IV are
+  **AES-256-GCM** with a key derived via **PBKDF2-SHA256 (310,000 iterations,
+  per-record random salt)** (Web Crypto). Only the ciphertext, salt, and IV are
   stored; the plaintext key and passphrase are never persisted.
 - **Unlock once per session** — after you enter your passphrase, the decrypted
   key is held in memory (`chrome.storage.session`) for the browser session and

@@ -13,7 +13,10 @@
 
   const enc = new TextEncoder();
   const dec = new TextDecoder();
-  const PBKDF2_ITERATIONS = 250000;
+  // New records use 310k iterations (OWASP-aligned for PBKDF2-SHA256). Existing
+  // records decrypt with whatever count is stored on them, so this is fully
+  // backward-compatible.
+  const PBKDF2_ITERATIONS = 310000;
   const SALT_BYTES = 16;
   const IV_BYTES = 12;
   const VERSION = 1;

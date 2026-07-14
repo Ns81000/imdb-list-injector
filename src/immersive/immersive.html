@@ -105,17 +105,17 @@
         <div class="counter" id="counter"></div>
         <div class="top-actions">
           <div class="fetch-indicator hidden" id="fetch-indicator"></div>
-          <button id="btn-slideshow" class="chip-btn" aria-pressed="false" title="Auto slideshow (Space)">
+          <button id="btn-slideshow" class="chip-btn" aria-pressed="false" title="Auto slideshow (Space)" aria-label="Auto slideshow">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 5.2v5.6l4.2-2.8z" fill="currentColor" stroke="none"/></svg>
             <span id="slideshow-label">Slideshow</span>
           </button>
-          <button id="btn-fullscreen" class="chip-btn" title="Fullscreen (F)">
+          <button id="btn-fullscreen" class="chip-btn" title="Fullscreen (F)" aria-label="Toggle fullscreen">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6V2.5h3.5M14 6V2.5h-3.5M2 10v3.5h3.5M14 10v3.5h-3.5"/></svg>
           </button>
-          <button id="btn-config" class="chip-btn" title="Filters">
+          <button id="btn-config" class="chip-btn" title="Filters" aria-label="Open filters">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>
           </button>
-          <button id="btn-exit" class="chip-btn" title="Exit (Esc)">
+          <button id="btn-exit" class="chip-btn" title="Exit (Esc)" aria-label="Exit player">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
           </button>
         </div>
@@ -134,7 +134,8 @@
         <div class="filter-sheet">
           <div class="filter-sheet-head">
             <span class="filter-sheet-title">Filters</span>
-            <button id="btn-filter-close" class="chip-btn" title="Close">
+            <span class="filter-sheet-match" id="pf-match" aria-live="polite"></span>
+            <button id="btn-filter-close" class="chip-btn" title="Close" aria-label="Close filters">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
               Close
             </button>

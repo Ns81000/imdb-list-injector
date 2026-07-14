@@ -120,7 +120,27 @@ async function fetchAndParseList(url, attempt = 1) {
   }
 }
 
+// IMDb list URLs are only reachable at https://www.imdb.com — that is the sole
+// host in both the CSP connect-src and host_permissions (so cookies are sent).
+// A user can legitimately paste "http://imdb.com/list/ls123" (the URL validator
+// allows a missing "www." and http); canonicalize to the one origin we're
+// allowed to talk to so the fetch doesn't fail with an opaque CSP/permission
+// error. The stored id derives from the ls-number, so it is unaffected.
+function canonicalizeImdbUrl(url) {
+  try {
+    const u = new URL(String(url));
+    if (/(^|\.)imdb\.com$/i.test(u.hostname)) {
+      u.protocol = 'https:';
+      u.hostname = 'www.imdb.com';
+    }
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 async function fetchAndParseSinglePage(url, timeoutMs = 20000) {
+  url = canonicalizeImdbUrl(url);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -231,6 +251,8 @@ async function refreshList(listId, url) {
       stored[idx].movies = result.movies;
       stored[idx].lastRefreshed = new Date().toISOString();
       stored[idx].movieCount = result.movies.length;
+      // Pick up a renamed list, but never clobber a good name with a blank one.
+      if (result.listName) stored[idx].name = String(result.listName).slice(0, 500);
       await chrome.storage.local.set({ imdb_lists: stored });
     }
   });

@@ -33,6 +33,9 @@
     started: false,
     runtimeBuckets: [],
     slideMs: 25000,
+    authFailures: 0,   // count of TMDB 401/403 responses this run
+    resolvedOk: 0,     // count of successful TMDB responses (image or not)
+    authNotified: false,
     config: { sort: 'position', sortDir: 'desc', types: new Set(), genres: new Set(), runtime: null }
   };
 
@@ -53,9 +56,20 @@
     return mins > 0 ? mins : null;
   }
 
+  // Parse a numeric field. Handles plain numbers ("8.5", 92792), grouped
+  // thousands ("1,234"), and abbreviated magnitudes ("470K", "1.2M", "3B") so
+  // sorting by votes/rating is correct even if a value arrives abbreviated.
   function parseNumber(v) {
     if (v == null || v === '') return null;
-    const n = Number(String(v).replace(/[^0-9.]/g, ''));
+    const s = String(v).trim();
+    const m = s.match(/^([\d,.]+)\s*([kmb])\b/i);
+    if (m) {
+      const base = Number(m[1].replace(/,/g, ''));
+      if (!Number.isFinite(base)) return null;
+      const mult = { k: 1e3, m: 1e6, b: 1e9 }[m[2].toLowerCase()] || 1;
+      return base * mult;
+    }
+    const n = Number(s.replace(/[^0-9.]/g, ''));
     return Number.isFinite(n) ? n : null;
   }
 
@@ -71,16 +85,57 @@
       .filter(Boolean);
   }
 
+  // TMDB lookup hint only (breaks find() ties). NOT used for filtering.
   function mediaTypeOf(type) {
-    return /tv|series|mini/i.test(String(type || '')) ? 'tv' : 'movie';
+    return /tv|series|mini|episode/i.test(String(type || '')) ? 'tv' : 'movie';
   }
 
-  function normalizeType(type) {
-    const t = String(type || '').toLowerCase();
-    if (/mini/.test(t)) return 'TV Mini Series';
-    if (/tv|series/.test(t)) return 'TV Series';
-    if (/movie|film/.test(t)) return 'Movie';
-    return type ? String(type) : 'Other';
+  // Fully dynamic faceting: the display label is the value exactly as IMDB gave
+  // it (whitespace-normalised); the grouping key folds case + whitespace so
+  // "TV Series" and "tv series" merge into one facet without any hardcoded type
+  // names. Nothing is remapped, so a title's type is shown verbatim.
+  function cleanLabel(v) {
+    return String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  }
+  function facetKey(v) {
+    return cleanLabel(v).toLowerCase();
+  }
+
+  // Build a facet map from raw values: key -> { label, count }. `label` is the
+  // most common original casing seen for that key. Empty values fold into an
+  // "unknown" bucket labelled from `emptyLabel` so nothing is silently dropped.
+  function buildFacet(values, emptyLabel) {
+    const map = new Map();
+    for (const raw of values) {
+      const label = cleanLabel(raw);
+      const key = label.toLowerCase(); // empty folds to '', matching facetKey('')
+      const shown = label || emptyLabel;
+      const e = map.get(key);
+      if (e) {
+        e.count++;
+        // Prefer the casing that occurs most often as the display label.
+        e.variants.set(shown, (e.variants.get(shown) || 0) + 1);
+        if (e.variants.get(shown) > e.variants.get(e.label)) e.label = shown;
+      } else {
+        map.set(key, { label: shown, count: 1, variants: new Map([[shown, 1]]) });
+      }
+    }
+    return map;
+  }
+
+  // Ordered facet entries: most common first, then alphabetical. Every distinct
+  // value present is included — nothing is capped or hidden here.
+  function facetEntries(map) {
+    return Array.from(map.entries())
+      .map(([key, v]) => ({ value: key, label: v.label, count: v.count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }
+
+  // Drop any selected keys that are no longer offered (keeps state consistent
+  // if the underlying data changes).
+  function pruneSelection(set, entries) {
+    const valid = new Set(entries.map((e) => e.value));
+    for (const k of Array.from(set)) if (!valid.has(k)) set.delete(k);
   }
 
   // Runtime buckets are computed dynamically from the target list's actual
@@ -283,7 +338,7 @@
     // Sort
     renderPills(el('sort'), SORTS.map((s) => ({ value: s.key, label: s.label })), {
       selected: () => new Set([state.config.sort]),
-      onToggle: (v) => { state.config.sort = v; syncPills(); updateDirLabels(prefix); onChange(); },
+      onToggle: (v) => { state.config.sort = v; state.config.sortDir = defaultDirFor(v); syncPills(); updateDirLabels(prefix); onChange(); },
       single: true
     });
 
@@ -298,34 +353,28 @@
     });
     updateDirLabels(prefix);
 
-    // Type
-    const typeCounts = new Map();
-    for (const m of state.source) {
-      const t = normalizeType(m.type);
-      typeCounts.set(t, (typeCounts.get(t) || 0) + 1);
-    }
-    if (typeCounts.size <= 1) {
+    // Type — every distinct type present, verbatim, with accurate counts.
+    const typeEntries = facetEntries(buildFacet(state.source.map((m) => m.type), 'Unknown type'));
+    pruneSelection(state.config.types, typeEntries);
+    if (typeEntries.length === 0) {
       el('type-group').classList.add('hidden');
     } else {
       el('type-group').classList.remove('hidden');
-      const types = Array.from(typeCounts.keys()).sort();
-      renderPills(el('type'), types.map((t) => ({ value: t, label: t, count: typeCounts.get(t) })), {
+      renderPills(el('type'), typeEntries, {
         selected: () => state.config.types,
         onToggle: (v) => { toggleSet(state.config.types, v); syncPills(); onChange(); }
       });
     }
 
-    // Genre
-    const genreCounts = new Map();
-    for (const m of state.source) {
-      for (const g of splitGenres(m.genre)) genreCounts.set(g, (genreCounts.get(g) || 0) + 1);
-    }
-    if (genreCounts.size === 0) {
+    // Genre — every distinct genre present (a title contributes each of its
+    // genres), with accurate counts.
+    const genreEntries = facetEntries(buildFacet(state.source.flatMap((m) => splitGenres(m.genre)), 'Unknown genre'));
+    pruneSelection(state.config.genres, genreEntries);
+    if (genreEntries.length === 0) {
       el('genre-group').classList.add('hidden');
     } else {
       el('genre-group').classList.remove('hidden');
-      const genres = Array.from(genreCounts.keys()).sort((a, b) => genreCounts.get(b) - genreCounts.get(a) || a.localeCompare(b));
-      renderPills(el('genre'), genres.map((g) => ({ value: g, label: g, count: genreCounts.get(g) })), {
+      renderPills(el('genre'), genreEntries, {
         selected: () => state.config.genres,
         onToggle: (v) => { toggleSet(state.config.genres, v); syncPills(); onChange(); }
       });
@@ -351,6 +400,12 @@
         clearable: true
       });
     }
+  }
+
+  // Natural default direction per field: A→Z for title, otherwise "largest
+  // first" (newest year, highest rating/votes, longest runtime).
+  function defaultDirFor(sort) {
+    return sort === 'title' ? 'asc' : 'desc';
   }
 
   // Direction labels depend on the active sort field.
@@ -405,9 +460,11 @@
   function computeFiltered() {
     const c = state.config;
     let out = state.source.filter((m) => {
-      if (c.types.size && !c.types.has(normalizeType(m.type))) return false;
+      // Type / genre matching uses the same facet keys the pills were built
+      // from, so what you select is exactly what you get.
+      if (c.types.size && !c.types.has(facetKey(m.type))) return false;
       if (c.genres.size) {
-        const gs = splitGenres(m.genre);
+        const gs = splitGenres(m.genre).map(facetKey);
         if (!gs.some((g) => c.genres.has(g))) return false;
       }
       if (c.runtime) {
@@ -453,6 +510,9 @@
     state.currentId = null;
     state.displayOrder = [];
     state.started = false;
+    state.authFailures = 0;
+    state.resolvedOk = 0;
+    state.authNotified = false;
 
     showStage('#stage-player');
     $('#loading-first').classList.remove('hidden');
@@ -490,17 +550,34 @@
         const movie = queue.shift();
         active++;
         resolveOne(movie, signal)
-          .catch(() => markIncomplete(movie))
+          .catch(() => { if (!signal.aborted) markIncomplete(movie); })
           .finally(() => {
             active--;
             done++;
-            updateFetchIndicator(done, total);
-            if (done >= total) $('#fetch-indicator').classList.add('hidden');
+            if (!signal.aborted) {
+              updateFetchIndicator(done, total);
+              if (done >= total) $('#fetch-indicator').classList.add('hidden');
+            }
             pump();
           });
       }
     };
     pump();
+  }
+
+  // One TMDB resolve with a single rate-limit retry. Errors propagate to the
+  // caller so it can distinguish auth failures from transient ones.
+  async function resolveWithRetry(imdbId, movie, signal) {
+    try {
+      return await globalThis.ImmersiveTmdb.resolve(imdbId, state.apiKey, mediaTypeOf(movie.type), signal);
+    } catch (err) {
+      if (err && err.rateLimited && !signal.aborted) {
+        await sleep((err.retryAfter || 1) * 1000);
+        if (signal.aborted) throw err;
+        return await globalThis.ImmersiveTmdb.resolve(imdbId, state.apiKey, mediaTypeOf(movie.type), signal);
+      }
+      throw err;
+    }
   }
 
   async function resolveOne(movie, signal) {
@@ -510,37 +587,66 @@
 
     let data;
     try {
-      data = await globalThis.ImmersiveTmdb.resolve(imdbId, state.apiKey, mediaTypeOf(movie.type), signal);
+      data = await resolveWithRetry(imdbId, movie, signal);
     } catch (err) {
-      if (err && err.rateLimited) {
-        await sleep((err.retryAfter || 1) * 1000);
-        if (signal.aborted) return;
-        data = await globalThis.ImmersiveTmdb.resolve(imdbId, state.apiKey, mediaTypeOf(movie.type), signal);
-      } else {
-        throw err;
-      }
+      // A superseded (aborted) request must NOT alter status — the new fetch
+      // engine owns these items now.
+      if (signal.aborted) return;
+      if (err && err.authFailed) { state.authFailures++; maybeShowAuthError(); }
+      markIncomplete(movie);
+      return;
     }
     if (signal.aborted) return;
 
+    state.resolvedOk++;            // TMDB answered (even if it had no images)
     state.byId.set(id, data);
     if (data && data.backdropUrl) markComplete(movie);
     else markIncomplete(movie);
+  }
+
+  // If the very first several resolves all fail with 401/403 and nothing has
+  // succeeded, the key is bad/revoked — stop and say so instead of silently
+  // showing an all-placeholder slideshow.
+  function maybeShowAuthError() {
+    if (state.authNotified || state.started || state.resolvedOk > 0) return;
+    const threshold = Math.min(6, state.ordered.length);
+    if (state.authFailures < threshold) return;
+    state.authNotified = true;
+    if (state.abort) state.abort.abort();
+    showMessage(
+      'TMDB rejected your key',
+      'Your saved TMDB key was refused (401/403). It may be invalid, revoked, or missing access. Update it in the extension settings, then reopen Immersive.',
+      'Back to filters',
+      backToConfig
+    );
+  }
+
+  // Coalesce display-order rebuilds to at most one per animation frame. Each
+  // rebuild is O(n); marking happens O(n) times during a load, so calling it
+  // per-item is O(n^2) and janks large lists. Batching keeps it smooth while
+  // still starting the player within a frame of the first complete item.
+  let _displayRaf = 0;
+  function scheduleDisplayUpdate() {
+    if (_displayRaf) return;
+    _displayRaf = requestAnimationFrame(() => {
+      _displayRaf = 0;
+      rebuildDisplayOrder();
+      maybeStartFirst();
+    });
   }
 
   function markComplete(movie) {
     const id = idOf(movie);
     if (state.statusById.get(id) === 'complete') return;
     state.statusById.set(id, 'complete');
-    rebuildDisplayOrder();
-    maybeStartFirst();
+    scheduleDisplayUpdate();
   }
 
   function markIncomplete(movie) {
     const id = idOf(movie);
     if (state.statusById.get(id) === 'complete') return;
     state.statusById.set(id, 'incomplete');
-    rebuildDisplayOrder();
-    maybeStartFirst();
+    scheduleDisplayUpdate();
   }
 
   // Complete items first (config order), then incomplete items (config order).
@@ -590,6 +696,15 @@
     preloadNeighbors();
   }
 
+  function makeBackdropPlaceholder(movie) {
+    const node = document.createElement('div');
+    node.className = 'backdrop-placeholder';
+    const span = document.createElement('span');
+    span.textContent = (movie && movie.title) || '';
+    node.appendChild(span);
+    return node;
+  }
+
   function renderBackdrop(id, movie, data) {
     const layer = $('#backdrop-layer');
     // Fade out old layers.
@@ -600,16 +715,23 @@
       node = document.createElement('img');
       node.className = 'backdrop-img';
       node.alt = '';
-      node.src = data.backdropUrl;
       node.decoding = 'async';
       const activate = () => requestAnimationFrame(() => node.classList.add('is-active'));
-      if (node.complete) activate(); else node.onload = activate;
+      // If the image fails to load (network blip / stale CDN url), never leave a
+      // black frame: swap in the title placeholder in the same slot.
+      node.onerror = () => {
+        const ph = makeBackdropPlaceholder(movie);
+        if (node.parentNode) node.replaceWith(ph); else node = ph;
+        requestAnimationFrame(() => ph.classList.add('is-active'));
+      };
+      node.onload = activate;
+      node.src = data.backdropUrl;
+      if (node.complete) {
+        if (node.naturalWidth > 0) activate();
+        else { node = makeBackdropPlaceholder(movie); requestAnimationFrame(() => node.classList.add('is-active')); }
+      }
     } else {
-      node = document.createElement('div');
-      node.className = 'backdrop-placeholder';
-      const span = document.createElement('span');
-      span.textContent = (movie && movie.title) || '';
-      node.appendChild(span);
+      node = makeBackdropPlaceholder(movie);
       requestAnimationFrame(() => node.classList.add('is-active'));
     }
     layer.appendChild(node);
@@ -626,20 +748,27 @@
     void panel.offsetWidth;
     panel.classList.add('enter');
 
-    // Poster
+    // Poster. Built via the DOM (not innerHTML) so the URL is never parsed as
+    // markup, with an onerror that hides the frame if the image won't load.
     const posterEl = $('#info-poster');
+    posterEl.innerHTML = '';
     if (data.posterUrl) {
       posterEl.style.display = '';
-      posterEl.innerHTML = `<img src="${escapeAttr(data.posterUrl)}" alt="">`;
+      const img = document.createElement('img');
+      img.alt = '';
+      img.decoding = 'async';
+      img.onerror = () => { posterEl.style.display = 'none'; posterEl.innerHTML = ''; };
+      img.src = data.posterUrl;
+      posterEl.appendChild(img);
     } else {
       posterEl.style.display = 'none';
-      posterEl.innerHTML = '';
     }
 
-    const media = mediaTypeOf(movie.type) === 'tv' ? 'Series' : 'Film';
+    // Show the real IMDB type verbatim (e.g. "TV Mini Series"), not a guess.
+    const typeLabel = cleanLabel(movie.type);
     const year = parseYear(movie.year);
     const rating = parseNumber(movie.rating);
-    const metaParts = [year, media, movie.duration].filter(Boolean);
+    const metaParts = [year, typeLabel, movie.duration].filter(Boolean);
     if (rating != null) metaParts.push(`IMDb ${rating.toFixed(1)}`);
     $('#info-meta').textContent = metaParts.join('  ·  ');
 
@@ -861,13 +990,18 @@
 
   function onKey(e) {
     if ($('#stage-player').classList.contains('hidden')) return;
+    const overlayOpen = !$('#filter-overlay').classList.contains('hidden');
+    const pickerOpen = !$('#slide-picker').classList.contains('hidden');
     // Esc closes any open overlay/picker first.
     if (e.key === 'Escape') {
-      if (!$('#filter-overlay').classList.contains('hidden')) { closeFilterOverlay(); return; }
-      if (!$('#slide-picker').classList.contains('hidden')) { toggleSlidePicker(false); return; }
+      if (overlayOpen) { closeFilterOverlay(); return; }
+      if (pickerOpen) { toggleSlidePicker(false); return; }
       exitPlayer();
       return;
     }
+    // While a panel is open let it own the keyboard, so Space/Enter/arrows on a
+    // focused pill toggle that pill instead of driving the player underneath.
+    if (overlayOpen || pickerOpen) return;
     if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
     else if (e.key === ' ') { e.preventDefault(); quickToggleSlideshow(); }
@@ -879,7 +1013,17 @@
   function openFilterOverlay() {
     toggleSlidePicker(false);
     buildFilterUI('pf', applyLiveFilter);
+    updatePfMatch(state.ordered.length);
     $('#filter-overlay').classList.remove('hidden');
+    const closeBtn = $('#btn-filter-close');
+    if (closeBtn) closeBtn.focus();
+  }
+
+  function updatePfMatch(n) {
+    const el = $('#pf-match');
+    if (!el) return;
+    el.textContent = n === 0 ? 'No matches' : `${n} match${n === 1 ? '' : 'es'}`;
+    el.classList.toggle('is-empty', n === 0);
   }
 
   function closeFilterOverlay() {
@@ -905,10 +1049,14 @@
     }
 
     rebuildDisplayOrder();
+    updatePfMatch(next.length);
 
     if (next.length === 0) {
-      // Nothing matches — hold on the current frame; the count guidance shows
-      // via the overlay pills. Do not tear down.
+      // Nothing matches — hold on the current frame and pause auto-advance
+      // (otherwise the slide timer keeps firing over an empty set). Playback
+      // resumes automatically when a later change yields matches again.
+      clearTimeout(state.slideTimer);
+      resetSlideBar(false);
       return;
     }
 
@@ -950,6 +1098,7 @@
 
   function teardownPlayback() {
     if (state.abort) state.abort.abort();
+    if (_displayRaf) { cancelAnimationFrame(_displayRaf); _displayRaf = 0; }
     stopSlideshow();
     closeFilterOverlay();
     toggleSlidePicker(false);

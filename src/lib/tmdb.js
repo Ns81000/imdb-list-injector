@@ -110,7 +110,14 @@
       err.rateLimited = true;
       throw err;
     }
-    if (!res.ok) throw new Error(`TMDB ${res.status}`);
+    if (!res.ok) {
+      const err = new Error(`TMDB ${res.status}`);
+      err.status = res.status;
+      // 401 = bad/expired v3 key or v4 token; 403 = key lacks access. Both mean
+      // the user's key won't work, so the caller can stop and surface it.
+      err.authFailed = res.status === 401 || res.status === 403;
+      throw err;
+    }
     const json = await res.json();
 
     const movie = (json.movie_results || [])[0];
