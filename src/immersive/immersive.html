@@ -105,6 +105,10 @@
         <div class="counter" id="counter"></div>
         <div class="top-actions">
           <div class="fetch-indicator hidden" id="fetch-indicator"></div>
+          <button id="btn-clips" class="chip-btn" title="Clips — image slideshow (G)" aria-label="Open clips">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2 6.5h12M5.5 3.5v9"/></svg>
+            <span>Clips</span>
+          </button>
           <button id="btn-slideshow" class="chip-btn" aria-pressed="false" title="Auto slideshow (Space)" aria-label="Auto slideshow">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 5.2v5.6l4.2-2.8z" fill="currentColor" stroke="none"/></svg>
             <span id="slideshow-label">Slideshow</span>
@@ -163,6 +167,23 @@
             </section>
           </div>
         </div>
+      </div>
+
+      <!-- Per-title backdrop "clips" slideshow (G) -->
+      <div id="clips-layer" class="clips-layer">
+        <div id="clips-backdrop" class="clips-backdrop"></div>
+        <div class="scrim scrim-bottom"></div>
+        <div id="clips-empty" class="clips-empty hidden">
+          <div class="clips-empty-inner">
+            <div class="clips-empty-title" id="clips-empty-title"></div>
+            <div class="clips-empty-sub">No clips for this title yet.</div>
+          </div>
+        </div>
+        <div id="clips-progress" class="slide-progress hidden"><div id="clips-progress-bar" class="slide-progress-bar"></div></div>
+        <div id="clips-title" class="clips-title"></div>
+        <button id="btn-clips-close" class="chip-btn clips-close" title="Close (G)" aria-label="Close clips">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
       </div>
     </div>
   </section>

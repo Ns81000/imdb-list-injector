@@ -16,6 +16,9 @@
   const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
   const CACHE_MAX = 12000;
 
+  const IMAGES_CACHE_KEY = 'imdb_tmdb_images_cache';
+  const IMAGES_CACHE_MAX = 4000;
+
   // v4 read tokens are long JWTs ("ey..."); v3 keys are 32-char hex.
   function authFor(key) {
     const isBearer = key.startsWith('ey') || key.length > 60;
@@ -29,53 +32,65 @@
   }
 
   // --- Cache (batched read once, writes debounced) -------------------------
+  // Factory so the title-resolve cache and the per-title images cache share
+  // identical batching/eviction behavior without duplicating it.
 
-  let _cache = null;
-  let _cacheLoad = null;
-  let _writeTimer = null;
+  function makeCache(storageKey, max) {
+    let cache = null;
+    let cacheLoad = null;
+    let writeTimer = null;
 
-  function loadCache() {
-    if (_cache) return Promise.resolve(_cache);
-    if (_cacheLoad) return _cacheLoad;
-    _cacheLoad = new Promise((resolve) => {
-      chrome.storage.local.get(CACHE_KEY, (data) => {
-        _cache = (data && data[CACHE_KEY] && typeof data[CACHE_KEY] === 'object') ? data[CACHE_KEY] : {};
-        resolve(_cache);
+    function load() {
+      if (cache) return Promise.resolve(cache);
+      if (cacheLoad) return cacheLoad;
+      cacheLoad = new Promise((resolve) => {
+        chrome.storage.local.get(storageKey, (data) => {
+          cache = (data && data[storageKey] && typeof data[storageKey] === 'object') ? data[storageKey] : {};
+          resolve(cache);
+        });
       });
-    });
-    return _cacheLoad;
+      return cacheLoad;
+    }
+
+    function scheduleWrite() {
+      if (writeTimer) return;
+      writeTimer = setTimeout(() => {
+        writeTimer = null;
+        if (!cache) return;
+        // Evict oldest entries if the cache grows unbounded.
+        const keys = Object.keys(cache);
+        if (keys.length > max) {
+          keys
+            .sort((a, b) => (cache[a].at || 0) - (cache[b].at || 0))
+            .slice(0, keys.length - max)
+            .forEach((k) => delete cache[k]);
+        }
+        chrome.storage.local.set({ [storageKey]: cache });
+      }, 800);
+    }
+
+    async function get(key) {
+      const c = await load();
+      const hit = c[key];
+      if (!hit) return null;
+      if (Date.now() - (hit.at || 0) > CACHE_TTL_MS) return null;
+      return hit.data;
+    }
+
+    async function put(key, data) {
+      const c = await load();
+      c[key] = { at: Date.now(), data };
+      scheduleWrite();
+    }
+
+    return { get, put };
   }
 
-  function scheduleWrite() {
-    if (_writeTimer) return;
-    _writeTimer = setTimeout(() => {
-      _writeTimer = null;
-      if (!_cache) return;
-      // Evict oldest entries if the cache grows unbounded.
-      const keys = Object.keys(_cache);
-      if (keys.length > CACHE_MAX) {
-        keys
-          .sort((a, b) => (_cache[a].at || 0) - (_cache[b].at || 0))
-          .slice(0, keys.length - CACHE_MAX)
-          .forEach((k) => delete _cache[k]);
-      }
-      chrome.storage.local.set({ [CACHE_KEY]: _cache });
-    }, 800);
-  }
+  const titleCache = makeCache(CACHE_KEY, CACHE_MAX);
+  const imagesCache = makeCache(IMAGES_CACHE_KEY, IMAGES_CACHE_MAX);
 
-  async function getCached(imdbId) {
-    const cache = await loadCache();
-    const hit = cache[imdbId];
-    if (!hit) return null;
-    if (Date.now() - (hit.at || 0) > CACHE_TTL_MS) return null;
-    return hit.data;
-  }
-
-  async function putCached(imdbId, data) {
-    const cache = await loadCache();
-    cache[imdbId] = { at: Date.now(), data };
-    scheduleWrite();
-  }
+  const getCached = (imdbId) => titleCache.get(imdbId);
+  const putCached = (imdbId, data) => titleCache.put(imdbId, data);
 
   // --- Fetch ---------------------------------------------------------------
 
@@ -131,7 +146,7 @@
 
     let data;
     if (!match) {
-      data = { imdbId, hasImages: false, posterUrl: null, backdropUrl: null, overview: '', mediaType: preferredType || null };
+      data = { imdbId, hasImages: false, posterUrl: null, backdropUrl: null, backdropPath: null, overview: '', mediaType: preferredType || null };
     } else {
       const posterUrl = imageUrl(match.poster_path, 'w780');
       const backdropUrl = imageUrl(match.backdrop_path, 'original');
@@ -142,6 +157,7 @@
         title: match.title || match.name || '',
         posterUrl,
         backdropUrl,
+        backdropPath: match.backdrop_path || null,
         overview: match.overview || '',
         hasImages: !!(posterUrl || backdropUrl)
       };
@@ -151,5 +167,42 @@
     return data;
   }
 
-  globalThis.ImmersiveTmdb = { resolve, validateKey, imageUrl };
+  // Fetch every backdrop TMDB has for one title (movie or tv), best-rated
+  // first. Used by the immersive player's per-title "clips" slideshow, kept
+  // separate from `resolve()` since most titles are only ever shown with
+  // their single main backdrop and never need this larger array fetched.
+  async function fetchBackdrops(tmdbId, mediaType, key, signal) {
+    const cacheKey = `${mediaType}:${tmdbId}`;
+    const cached = await imagesCache.get(cacheKey);
+    if (cached) return cached;
+
+    const auth = authFor(key);
+    const url = `${API_BASE}/${mediaType}/${encodeURIComponent(tmdbId)}/images?${auth.query.slice(1)}`;
+    const res = await fetch(url, { headers: auth.headers, signal });
+    if (res.status === 429) {
+      const retryAfter = Number(res.headers.get('Retry-After')) || 1;
+      const err = new Error('rate-limited');
+      err.retryAfter = retryAfter;
+      err.rateLimited = true;
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error(`TMDB ${res.status}`);
+      err.status = res.status;
+      err.authFailed = res.status === 401 || res.status === 403;
+      throw err;
+    }
+    const json = await res.json();
+
+    const images = (json.backdrops || [])
+      .slice()
+      .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0))
+      .map((b) => ({ path: b.file_path, url: imageUrl(b.file_path, 'w1280'), width: b.width, height: b.height }))
+      .filter((b) => !!b.url);
+
+    await imagesCache.put(cacheKey, images);
+    return images;
+  }
+
+  globalThis.ImmersiveTmdb = { resolve, validateKey, imageUrl, fetchBackdrops };
 })();

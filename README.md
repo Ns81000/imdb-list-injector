@@ -1,6 +1,6 @@
 # IMDB List Injector
 
-![Version](https://img.shields.io/badge/version-1.3.0-blue.svg?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.4.0-blue.svg?style=flat-square)
 ![Manifest](https://img.shields.io/badge/manifest-v3-green.svg?style=flat-square)
 ![Browser](https://img.shields.io/badge/browser-chrome-yellow.svg?style=flat-square)
 
@@ -53,6 +53,12 @@ Everything runs and is stored locally in your browser.
   navigation is instant.
 - **Auto slideshow** — shuffles through the whole list (covering every title
   once before repeating) at your chosen interval: **5s / 10s / 25s / 50s**.
+- **Clips (`G`)** — press **G** (or the **Clips** button) on any title to open a
+  full-screen slideshow of *that title's own* high-resolution TMDB backdrops,
+  auto-advancing every 4s and looping until you close it. Images are prefetched
+  so it opens instantly, the one already showing behind the info panel is never
+  repeated, and titles with fewer than two extra backdrops show a clean "no
+  clips" message instead of an empty reel.
 - **In-player filter panel** — a translucent side sheet lets you re-filter or
   re-sort live without leaving the player; changes apply immediately, a live
   match count shows how many titles qualify, and auto-advance pauses cleanly if
@@ -61,8 +67,9 @@ Everything runs and is stored locally in your browser.
   falls back to a clean title placeholder instead of a black screen; if TMDB
   rejects your key (401/403), you get a clear message rather than a silent
   image-less slideshow.
-- **Keyboard controls** — `←/→` navigate, `Space` toggles the slideshow, `F`
-  toggles fullscreen, `Esc` closes an open panel or exits.
+- **Keyboard controls** — `←/→` navigate, `Space` toggles the slideshow, `G`
+  opens the per-title clips slideshow, `F` toggles fullscreen, `Esc` closes an
+  open panel or exits.
 - **Respects `prefers-reduced-motion`** and works on desktop and mobile widths.
 
 ### Security & privacy
@@ -130,7 +137,9 @@ After pulling changes, click the **refresh** icon on the extension card in
 - Enter your passphrase once (first launch of the session) to unlock the key.
 - Pick your Sort / Type / Genre / Runtime filters, then press **Start**.
 - Inside the player: use the on-screen controls or keyboard, open **Slideshow**
-  to auto-advance, or the **filter** icon to re-filter live.
+  to auto-advance, press **G** (or the **Clips** button) for a full-screen
+  slideshow of the current title's backdrops, or the **filter** icon to
+  re-filter live.
 
 ---
 

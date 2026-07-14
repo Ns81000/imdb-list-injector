@@ -36,7 +36,10 @@
     authFailures: 0,   // count of TMDB 401/403 responses this run
     resolvedOk: 0,     // count of successful TMDB responses (image or not)
     authNotified: false,
-    config: { sort: 'position', sortDir: 'desc', types: new Set(), genres: new Set(), runtime: null }
+    config: { sort: 'position', sortDir: 'desc', types: new Set(), genres: new Set(), runtime: null },
+    // Per-title backdrop "clips" slideshow (G).
+    clipsCache: new Map(), // imdbId -> { status:'loading'|'ready'|'ineligible'|'error', images:[{path,url}] }
+    clips: { active: false, images: [], index: 0, timer: null, forId: null }
   };
 
   // ---- Field parsers (extension stores strings) --------------------------
@@ -694,6 +697,7 @@
     renderInfo(movie, data);
     updateCounter();
     preloadNeighbors();
+    prefetchClipsMeta(id);
   }
 
   function makeBackdropPlaceholder(movie) {
@@ -962,6 +966,223 @@
     }
   }
 
+  // ---- Per-title clips slideshow (G) -------------------------------------
+  //
+  // A second, fully immersive slideshow of the CURRENT title's own high-res
+  // backdrops (not the poster, and never the one image already behind the info
+  // panel). Metadata is prefetched for the current title as soon as it's shown,
+  // so pressing G is instant in the common case. Loops forever until closed.
+
+  const CLIPS_INTERVAL_MS = 4000;
+  const CLIPS_PRELOAD_AHEAD = 3;
+
+  // The main immersive backdrop's TMDB file_path, used to exclude that exact
+  // image from the clips slideshow. `backdropPath` is authoritative when
+  // present; older cache entries only have `backdropUrl`, so recover the path
+  // from it (the trailing "/<hash>.jpg" segment, identical across image sizes).
+  function mainBackdropPath(data) {
+    if (!data) return null;
+    if (data.backdropPath) return data.backdropPath;
+    const url = data.backdropUrl;
+    if (!url) return null;
+    const m = String(url).match(/\/t\/p\/[^/]+(\/[^/?#]+)/);
+    return m ? m[1] : null;
+  }
+
+  // Kick off (or reuse) a backdrop fetch for `id`. Fire-and-forget; result is
+  // cached in state.clipsCache keyed by imdb_id. Never throws to the caller.
+  function prefetchClipsMeta(id) {
+    if (state.clipsCache.has(id)) return; // loading, ready, ineligible or error
+    const data = state.byId.get(id);
+    if (!data || !data.tmdbId || !data.mediaType) {
+      state.clipsCache.set(id, { status: 'ineligible', images: [] });
+      return;
+    }
+    state.clipsCache.set(id, { status: 'loading', images: [] });
+    loadClips(id, data);
+  }
+
+  async function loadClips(id, data) {
+    // The main backdrop's path. Prefer the explicit field, but fall back to
+    // parsing it out of backdropUrl so entries cached before backdropPath
+    // existed are still excluded (file_path is size-independent).
+    const excludePath = mainBackdropPath(data);
+    try {
+      let images = await globalThis.ImmersiveTmdb.fetchBackdrops(data.tmdbId, data.mediaType, state.apiKey);
+      // Drop the exact image already used as the main immersive backdrop.
+      if (excludePath) images = images.filter((im) => im.path !== excludePath);
+      const entry = images.length >= 2
+        ? { status: 'ready', images }
+        : { status: 'ineligible', images: [] };
+      state.clipsCache.set(id, entry);
+    } catch (err) {
+      if (err && err.rateLimited) {
+        // One retry after the requested delay, then give up gracefully.
+        try {
+          await sleep((err.retryAfter || 1) * 1000);
+          let images = await globalThis.ImmersiveTmdb.fetchBackdrops(data.tmdbId, data.mediaType, state.apiKey);
+          if (excludePath) images = images.filter((im) => im.path !== excludePath);
+          state.clipsCache.set(id, images.length >= 2 ? { status: 'ready', images } : { status: 'ineligible', images: [] });
+        } catch {
+          state.clipsCache.set(id, { status: 'error', images: [] });
+        }
+      } else {
+        state.clipsCache.set(id, { status: 'error', images: [] });
+      }
+    }
+    // If the user is waiting on this exact title's clips, react now.
+    if (state.clips.active && state.clips.forId === id && !state.clips.images.length) {
+      applyClipsForCurrent();
+    }
+  }
+
+  function toggleClips() {
+    if (state.clips.active) { closeClips(); return; }
+    openClips();
+  }
+
+  function openClips() {
+    const id = state.currentId;
+    if (!id) return;
+    state.clips.active = true;
+    state.clips.forId = id;
+    state.clips.images = [];
+    state.clips.index = 0;
+
+    // Pause (don't stop) the main title-to-title slideshow so it resumes on
+    // close without any button-state flicker.
+    clearTimeout(state.slideTimer);
+    resetSlideBar(false);
+
+    $('#clips-layer').classList.add('is-open');
+    $('#btn-clips').setAttribute('aria-pressed', 'true');
+    $('#btn-clips-close').onclick = closeClips;
+    $('#clips-title').textContent = '';
+
+    prefetchClipsMeta(id);
+    applyClipsForCurrent();
+  }
+
+  // Reflect whatever the cache currently holds for the active title: spinner
+  // while loading, the slideshow when ready, or the "no clips" state.
+  function applyClipsForCurrent() {
+    const id = state.clips.forId;
+    const entry = state.clipsCache.get(id) || { status: 'loading', images: [] };
+    const movie = movieById(id);
+    const title = (movie && movie.title) || '';
+
+    if (entry.status === 'loading') {
+      showClipsLoading();
+      return;
+    }
+    if (entry.status === 'ready' && entry.images.length >= 2) {
+      startClipsPlayback(entry.images);
+      return;
+    }
+    // ineligible or error -> friendly empty state.
+    showClipsEmpty(title);
+  }
+
+  function showClipsLoading() {
+    clearTimeout(state.clips.timer);
+    $('#clips-empty').classList.add('hidden');
+    $('#clips-progress').classList.add('hidden');
+    const layer = $('#clips-backdrop');
+    layer.innerHTML = '<div class="clips-spinner"><div class="shimmer"></div></div>';
+  }
+
+  function showClipsEmpty(title) {
+    clearTimeout(state.clips.timer);
+    state.clips.images = [];
+    $('#clips-backdrop').innerHTML = '';
+    $('#clips-progress').classList.add('hidden');
+    $('#clips-title').textContent = '';
+    $('#clips-empty-title').textContent = title || 'No clips';
+    $('#clips-empty').classList.remove('hidden');
+  }
+
+  function startClipsPlayback(images) {
+    $('#clips-empty').classList.add('hidden');
+    $('#clips-backdrop').innerHTML = '';
+    $('#clips-progress').classList.remove('hidden');
+    const movie = movieById(state.clips.forId);
+    $('#clips-title').textContent = (movie && movie.title) || '';
+    state.clips.images = images;
+    state.clips.index = 0;
+    renderClip(0);
+    restartClipsTimer();
+  }
+
+  function renderClip(index) {
+    const images = state.clips.images;
+    if (!images.length) return;
+    const im = images[index % images.length];
+    const layer = $('#clips-backdrop');
+    const olds = Array.from(layer.children);
+
+    const node = document.createElement('img');
+    node.className = 'clips-img';
+    node.alt = '';
+    node.decoding = 'async';
+    const activate = () => requestAnimationFrame(() => node.classList.add('is-active'));
+    node.onload = activate;
+    node.onerror = () => { if (node.parentNode) node.remove(); };
+    node.src = im.url;
+    if (node.complete && node.naturalWidth > 0) activate();
+    layer.appendChild(node);
+    setTimeout(() => olds.forEach((o) => o.remove()), 950);
+
+    preloadClipNeighbors(index);
+  }
+
+  function preloadClipNeighbors(index) {
+    const images = state.clips.images;
+    for (let i = 1; i <= CLIPS_PRELOAD_AHEAD; i++) {
+      const im = images[(index + i) % images.length];
+      if (im) preloadUrl(im.url);
+    }
+  }
+
+  function restartClipsTimer() {
+    clearTimeout(state.clips.timer);
+    resetClipsBar(true);
+    state.clips.timer = setTimeout(advanceClips, CLIPS_INTERVAL_MS);
+  }
+
+  function advanceClips() {
+    if (!state.clips.active || !state.clips.images.length) return;
+    state.clips.index = (state.clips.index + 1) % state.clips.images.length;
+    renderClip(state.clips.index);
+    restartClipsTimer();
+  }
+
+  function resetClipsBar(run) {
+    const bar = $('#clips-progress-bar');
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    void bar.offsetWidth;
+    if (run) {
+      bar.style.transition = `width ${CLIPS_INTERVAL_MS}ms linear`;
+      bar.style.width = '100%';
+    }
+  }
+
+  function closeClips() {
+    if (!state.clips.active) return;
+    clearTimeout(state.clips.timer);
+    state.clips.active = false;
+    state.clips.images = [];
+    state.clips.forId = null;
+    $('#clips-layer').classList.remove('is-open');
+    $('#btn-clips').setAttribute('aria-pressed', 'false');
+    $('#clips-backdrop').innerHTML = '';
+    $('#clips-empty').classList.add('hidden');
+    $('#clips-progress').classList.add('hidden');
+    resetClipsBar(false);
+    // Resume the main slideshow if it was running when clips opened.
+    if (state.slideshow) restartSlideTimer();
+  }
+
   // ---- Controls / fullscreen ---------------------------------------------
 
   let _controlsBound = false;
@@ -969,6 +1190,7 @@
     $('#btn-prev').onclick = () => step(-1);
     $('#btn-next').onclick = () => step(1);
     $('#btn-slideshow').onclick = onSlideshowButton;
+    $('#btn-clips').onclick = toggleClips;
     $('#btn-fullscreen').onclick = toggleFullscreen;
     $('#btn-config').onclick = openFilterOverlay;
     $('#btn-exit').onclick = exitPlayer;
@@ -977,6 +1199,13 @@
     $('#filter-overlay').onclick = (e) => { if (e.target.id === 'filter-overlay') closeFilterOverlay(); };
     if (!_controlsBound) {
       document.addEventListener('keydown', onKey);
+      // In fullscreen the browser eats Esc to exit fullscreen before the page
+      // ever sees the keydown, so onKey never fires for it. Treat leaving
+      // fullscreen while clips are open as the close signal, so Esc closes the
+      // clips panel as the user expects.
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && state.clips.active) closeClips();
+      });
       // Close the slide picker on any outside click.
       document.addEventListener('pointerdown', (e) => {
         const picker = $('#slide-picker');
@@ -992,20 +1221,28 @@
     if ($('#stage-player').classList.contains('hidden')) return;
     const overlayOpen = $('#filter-overlay').classList.contains('is-open');
     const pickerOpen = $('#slide-picker').classList.contains('is-open');
-    // Esc closes any open overlay/picker first.
+    const clipsOpen = state.clips.active;
+    // Esc closes any open overlay/picker/clips first.
     if (e.key === 'Escape') {
       if (overlayOpen) { closeFilterOverlay(); return; }
       if (pickerOpen) { toggleSlidePicker(false); return; }
+      if (clipsOpen) { closeClips(); return; }
       exitPlayer();
       return;
     }
-    // While a panel is open let it own the keyboard, so Space/Enter/arrows on a
-    // focused pill toggle that pill instead of driving the player underneath.
+    // While the filter sheet or slide picker is open let it own the keyboard.
     if (overlayOpen || pickerOpen) return;
+    // While clips are playing, G closes them; ignore the other player keys so
+    // they don't drive the title underneath.
+    if (clipsOpen) {
+      if (e.key === 'g' || e.key === 'G') { e.preventDefault(); closeClips(); }
+      return;
+    }
     if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
     else if (e.key === ' ') { e.preventDefault(); quickToggleSlideshow(); }
     else if (e.key === 'f' || e.key === 'F') { toggleFullscreen(); }
+    else if (e.key === 'g' || e.key === 'G') { e.preventDefault(); toggleClips(); }
   }
 
   // ---- In-player filter overlay (translucent, live) ---------------------
@@ -1099,6 +1336,7 @@
   function teardownPlayback() {
     if (state.abort) state.abort.abort();
     if (_displayRaf) { cancelAnimationFrame(_displayRaf); _displayRaf = 0; }
+    closeClips();
     stopSlideshow();
     closeFilterOverlay();
     toggleSlidePicker(false);

@@ -587,10 +587,99 @@ html, body {
 }
 .filter-sheet-body .cfg-label { color: rgba(255,255,255,0.6); }
 
+/* Per-title clips slideshow (G) — sits above every other player layer */
+.clips-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  background: #000;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.28s var(--ease-out), visibility 0.28s var(--ease-out);
+}
+.clips-layer.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.clips-backdrop { position: absolute; inset: 0; }
+.clips-img {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  opacity: 0;
+  filter: blur(10px);
+  transform: scale(1.03);
+  transition: opacity 0.9s var(--ease-out), filter 0.9s var(--ease-out), transform 0.9s var(--ease-out);
+}
+.clips-img.is-active { opacity: 1; filter: blur(0); transform: scale(1); }
+
+.clips-spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clips-title {
+  position: absolute;
+  left: clamp(24px, 5vw, 64px);
+  bottom: clamp(28px, 6vh, 64px);
+  z-index: 3;
+  font-size: clamp(22px, 3.4vw, 40px);
+  font-weight: 680;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(0,0,0,0.6);
+  max-width: min(70vw, 720px);
+}
+
+.clips-close {
+  position: absolute;
+  top: clamp(16px, 2.4vh, 26px);
+  right: clamp(20px, 3vw, 34px);
+  z-index: 5;
+}
+
+.clips-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(120% 120% at 30% 20%, #1c1c22 0%, #0b0b0e 60%, #060608 100%);
+}
+.clips-empty-inner { text-align: center; padding: 0 8%; }
+.clips-empty-title {
+  font-size: clamp(28px, 7vw, 84px);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  color: rgba(255,255,255,0.10);
+  line-height: 1.05;
+}
+.clips-empty-sub {
+  margin-top: 18px;
+  font-size: clamp(13px, 1.4vw, 16px);
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.55);
+}
+#clips-progress { z-index: 6; }
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .backdrop-img { transition: opacity 0.2s linear; transform: none; }
   .backdrop-img.is-active { transform: none; }
+  .clips-img { transition: opacity 0.2s linear; transform: none; }
+  .clips-img.is-active { transform: none; }
+  .clips-layer { transition: opacity 0.15s linear; }
   .info-panel.enter { animation: none; }
   .shimmer { animation-duration: 1.4s; }
   .popover, .filter-overlay, .filter-sheet { transition: none; transform: none; }
