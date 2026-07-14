@@ -13,17 +13,16 @@
     <header class="header">
       <h1 class="header-title">IMDB List Injector</h1>
       <div class="header-actions">
-        <button id="btn-prefs" class="icon-btn" title="Preferences">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-            <circle cx="8" cy="8" r="3.5"/>
-            <rect x="7" y="0.5" width="2" height="2" rx="0.5"/>
-            <rect x="7" y="13.5" width="2" height="2" rx="0.5"/>
-            <rect x="0.5" y="7" width="2" height="2" rx="0.5"/>
-            <rect x="13.5" y="7" width="2" height="2" rx="0.5"/>
-            <rect x="2" y="2" width="1.5" height="1.5" rx="0.3" transform="rotate(45 2.75 2.75)"/>
-            <rect x="12.5" y="12.5" width="1.5" height="1.5" rx="0.3" transform="rotate(45 13.25 13.25)"/>
-            <rect x="12.5" y="2" width="1.5" height="1.5" rx="0.3" transform="rotate(-45 13.25 2.75)"/>
-            <rect x="2" y="12.5" width="1.5" height="1.5" rx="0.3" transform="rotate(-45 2.75 13.25)"/>
+        <button id="btn-immersive-all" class="icon-btn" title="Immersive — all lists">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1.5" y="3" width="13" height="10" rx="1.5"/>
+            <path d="M6.5 6.2v3.6l3-1.8z" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+        <button id="btn-prefs" class="icon-btn" title="Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
         <button id="btn-add" class="btn-primary-sm">Add List</button>
@@ -101,9 +100,33 @@
       <span class="label-hint">
         Used for copy and download actions.
       </span>
+
+      <div class="prefs-divider"></div>
+
+      <label class="label" for="tmdb-key-input">TMDB API Key</label>
+      <input id="tmdb-key-input" class="input" type="password" placeholder="v3 key or v4 read token" spellcheck="false" autocomplete="off">
+      <span class="label-hint">
+        Powers Immersive mode's posters and backdrops. Get a free key at
+        themoviedb.org → Settings → API. Stored only on this device.
+      </span>
+
+      <label class="label label-spaced" for="tmdb-pass-input">Passphrase</label>
+      <input id="tmdb-pass-input" class="input" type="password" placeholder="Encrypts your key on this device" spellcheck="false" autocomplete="off">
+      <span class="label-hint">
+        Your key is encrypted with this passphrase (AES-GCM) and never stored in
+        plain text. You'll enter it once per browser session to start Immersive.
+      </span>
+
+      <div class="key-actions">
+        <button id="btn-save-key" class="btn-fetch key-save-btn">Save key</button>
+        <button id="btn-clear-key" class="btn-footer">Clear</button>
+      </div>
+      <div id="key-status" class="key-status hidden"></div>
     </div>
   </div>
 
+  <script src="../lib/crypto.js"></script>
+  <script src="../lib/tmdb.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

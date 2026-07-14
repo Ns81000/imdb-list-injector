@@ -49,28 +49,39 @@
       empty.classList.add('hidden');
       container.innerHTML = lists.map((list, idx) => `
         <div class="list-card" data-idx="${idx}">
-          <div class="list-card-info">
-            <div class="list-card-name">
-              ${escapeHtml(list.name)}
-              <span class="list-card-count">${Number(list.movieCount) || 0}</span>
+          <div class="list-card-top">
+            <div class="list-card-info">
+              <div class="list-card-name">
+                ${escapeHtml(list.name)}
+                <span class="list-card-count">${Number(list.movieCount) || 0}</span>
+              </div>
+              <div class="list-card-meta">${escapeHtml(formatRelativeTime(list.lastRefreshed))}</div>
             </div>
-            <div class="list-card-meta">${escapeHtml(formatRelativeTime(list.lastRefreshed))}</div>
-            <div class="list-card-actions-row">
+            <div class="list-card-actions">
+              <button class="icon-btn refresh-btn" data-id="${escapeHtml(list.id)}" data-url="${escapeHtml(list.url)}" title="Refresh">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 2v5h5"/>
+                  <path d="M3.51 10a5.5 5.5 0 1 0 .68-5.97L1 7"/>
+                </svg>
+              </button>
+              <button class="icon-btn delete delete-btn" data-id="${escapeHtml(list.id)}" title="Delete">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                  <path d="M4 4l8 8M12 4l-8 8"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="list-card-actions-row">
+            <div class="list-card-actions-left">
               <button class="list-action-btn copy-btn" data-idx="${idx}" title="Copy formatted list">Copy</button>
               <button class="list-action-btn download-btn" data-idx="${idx}" title="Download formatted list">Download</button>
             </div>
-          </div>
-          <div class="list-card-actions">
-            <button class="icon-btn refresh-btn" data-id="${escapeHtml(list.id)}" data-url="${escapeHtml(list.url)}" title="Refresh">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 2v5h5"/>
-                <path d="M3.51 10a5.5 5.5 0 1 0 .68-5.97L1 7"/>
+            <button class="list-action-btn immersive-btn" data-id="${escapeHtml(list.id)}" title="Immersive mode">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1.5" y="3" width="13" height="10" rx="1.5"/>
+                <path d="M6.5 6.2v3.6l3-1.8z" fill="currentColor" stroke="none"/>
               </svg>
-            </button>
-            <button class="icon-btn delete delete-btn" data-id="${escapeHtml(list.id)}" title="Delete">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-                <path d="M4 4l8 8M12 4l-8 8"/>
-              </svg>
+              Immersive
             </button>
           </div>
         </div>
@@ -122,6 +133,41 @@
             btn.disabled = false;
           }
         });
+      });
+
+      container.querySelectorAll('.immersive-btn').forEach(btn => {
+        btn.addEventListener('click', () => openImmersive('list', btn.dataset.id));
+      });
+    });
+  }
+
+  // Open the immersive player in a new tab. scope='list' needs an id; 'all'
+  // pools every saved list. Guarded so a missing key routes the user to prefs.
+  function openImmersive(scope, id) {
+    chrome.storage.local.get('imdb_tmdb_key', (data) => {
+      if (!data || !data.imdb_tmdb_key) {
+        loadPrefs();
+        navigateTo('prefs');
+        showKeyStatus('Add your TMDB API key below to start Immersive mode.', 'error');
+        return;
+      }
+      const params = new URLSearchParams({ scope });
+      if (scope === 'list' && id) params.set('id', id);
+      const url = chrome.runtime.getURL(`src/immersive/immersive.html?${params.toString()}`);
+      chrome.tabs.create({ url });
+    });
+  }
+
+  const btnImmersiveAll = $('#btn-immersive-all');
+  if (btnImmersiveAll) {
+    btnImmersiveAll.addEventListener('click', () => {
+      chrome.storage.local.get('imdb_lists', (data) => {
+        const lists = data.imdb_lists || [];
+        if (lists.length === 0) {
+          showHomeStatus('No lists saved yet. Add a list first.', true);
+          return;
+        }
+        openImmersive('all');
       });
     });
   }
@@ -357,6 +403,7 @@
       defaultFormat = prefs.defaultFormat || 'csv';
       $('#pref-format').value = defaultFormat;
     });
+    refreshKeyState();
   }
 
   function savePrefs() {
@@ -378,6 +425,82 @@
   }
 
   $('#pref-format').addEventListener('change', savePrefs);
+
+  // --- TMDB key (encrypted at rest) ---
+
+  let keyStatusTimer = null;
+  function showKeyStatus(message, kind) {
+    const el = $('#key-status');
+    if (!el) return;
+    el.textContent = String(message || '').slice(0, 200);
+    el.classList.remove('hidden', 'error', 'ok');
+    if (kind === 'error') el.classList.add('error');
+    else if (kind === 'ok') el.classList.add('ok');
+    clearTimeout(keyStatusTimer);
+    // Persistent for guidance ('error'), transient for success confirmations.
+    if (kind === 'ok') {
+      keyStatusTimer = setTimeout(() => { el.classList.add('hidden'); keyStatusTimer = null; }, 4000);
+    }
+  }
+
+  function refreshKeyState() {
+    chrome.storage.local.get('imdb_tmdb_key', (data) => {
+      const has = !!(data && data.imdb_tmdb_key);
+      const clearBtn = $('#btn-clear-key');
+      if (clearBtn) clearBtn.disabled = !has;
+      if (has) showKeyStatus('A TMDB key is saved and encrypted on this device.', 'ok');
+    });
+  }
+
+  const btnSaveKey = $('#btn-save-key');
+  if (btnSaveKey) {
+    btnSaveKey.addEventListener('click', async () => {
+      const key = $('#tmdb-key-input').value.trim();
+      const pass = $('#tmdb-pass-input').value;
+      if (!key) { showKeyStatus('Enter your TMDB API key.', 'error'); return; }
+      if (!pass || pass.length < 4) { showKeyStatus('Choose a passphrase of at least 4 characters.', 'error'); return; }
+      if (!globalThis.ImmersiveCrypto || !globalThis.ImmersiveTmdb) { showKeyStatus('Internal error: crypto unavailable.', 'error'); return; }
+
+      btnSaveKey.disabled = true;
+      const original = btnSaveKey.textContent;
+      btnSaveKey.textContent = 'Verifying…';
+      try {
+        const valid = await globalThis.ImmersiveTmdb.validateKey(key);
+        if (!valid) {
+          showKeyStatus('That key was rejected by TMDB. Check it and try again.', 'error');
+          return;
+        }
+        const record = await globalThis.ImmersiveCrypto.encrypt(key, pass);
+        await new Promise((resolve, reject) => {
+          chrome.storage.local.set({ imdb_tmdb_key: record }, () => {
+            if (chrome.runtime.lastError) reject(chrome.runtime.lastError); else resolve();
+          });
+        });
+        // Prime the in-memory (session) copy so the first launch skips the prompt.
+        try { await chrome.storage.session.set({ imdb_tmdb_key_plain: key }); } catch { /* session unavailable */ }
+        $('#tmdb-key-input').value = '';
+        $('#tmdb-pass-input').value = '';
+        showKeyStatus('Key verified and encrypted. Immersive mode is ready.', 'ok');
+        refreshKeyState();
+      } catch (err) {
+        showKeyStatus(`Could not save key: ${err.message || 'unknown error'}.`, 'error');
+      } finally {
+        btnSaveKey.disabled = false;
+        btnSaveKey.textContent = original;
+      }
+    });
+  }
+
+  const btnClearKey = $('#btn-clear-key');
+  if (btnClearKey) {
+    btnClearKey.addEventListener('click', async () => {
+      if (!confirm('Remove the saved TMDB key from this device?')) return;
+      await new Promise((resolve) => chrome.storage.local.remove('imdb_tmdb_key', resolve));
+      try { await chrome.storage.session.remove('imdb_tmdb_key_plain'); } catch { /* noop */ }
+      $('#btn-clear-key').disabled = true;
+      showKeyStatus('TMDB key removed.', 'ok');
+    });
+  }
 
   // --- Field coercion (safety net for older saved lists) ---
   // Lists saved before the parser fix may hold a description (or other field)

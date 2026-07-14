@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="immersive.css">
+  <title>Immersive — IMDB List Injector</title>
+</head>
+<body>
+
+  <!-- STAGE: UNLOCK (passphrase prompt) -->
+  <section id="stage-unlock" class="stage hidden">
+    <div class="panel">
+      <div class="eyebrow">Immersive</div>
+      <h1 class="panel-title">Unlock your key</h1>
+      <p class="panel-sub">Enter your passphrase to decrypt your TMDB key for this session.</p>
+      <form id="unlock-form" autocomplete="off">
+        <input id="unlock-pass" class="field" type="password" placeholder="Passphrase" spellcheck="false" autocomplete="off">
+        <div id="unlock-error" class="field-error hidden"></div>
+        <button type="submit" class="btn-primary">Unlock</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- STAGE: CONFIG -->
+  <section id="stage-config" class="stage hidden">
+    <div class="config-wrap">
+      <header class="config-head">
+        <div>
+          <div class="eyebrow" id="config-eyebrow">Immersive</div>
+          <h1 class="config-title" id="config-title">Configure your session</h1>
+        </div>
+        <div class="config-count" id="config-count"></div>
+      </header>
+
+      <div class="config-body">
+        <section class="cfg-group">
+          <div class="cfg-label">Sort by</div>
+          <div class="pill-row" id="cfg-sort"></div>
+        </section>
+
+        <section class="cfg-group" id="cfg-sort-dir-group">
+          <div class="cfg-label">Order</div>
+          <div class="pill-row" id="cfg-sort-dir"></div>
+        </section>
+
+        <section class="cfg-group" id="cfg-type-group">
+          <div class="cfg-label">Type <span class="cfg-hint">optional</span></div>
+          <div class="pill-row" id="cfg-type"></div>
+        </section>
+
+        <section class="cfg-group" id="cfg-genre-group">
+          <div class="cfg-label">Genre <span class="cfg-hint">optional · any</span></div>
+          <div class="pill-row" id="cfg-genre"></div>
+        </section>
+
+        <section class="cfg-group" id="cfg-runtime-group">
+          <div class="cfg-label">Runtime <span class="cfg-hint">optional</span></div>
+          <div class="pill-row" id="cfg-runtime"></div>
+        </section>
+      </div>
+
+      <footer class="config-foot">
+        <button id="btn-exit-config" class="btn-ghost">Close</button>
+        <div class="config-foot-right">
+          <span class="config-match" id="config-match"></span>
+          <button id="btn-start" class="btn-primary">Start</button>
+        </div>
+      </footer>
+    </div>
+  </section>
+
+  <!-- STAGE: PLAYER -->
+  <section id="stage-player" class="stage hidden">
+    <div id="player-root" class="player-root">
+      <div id="backdrop-layer" class="backdrop-layer"></div>
+      <div class="scrim scrim-bottom"></div>
+      <div class="scrim scrim-left"></div>
+
+      <div id="loading-first" class="loading-first">
+        <div class="shimmer"></div>
+        <div class="loading-text">Resolving titles…</div>
+      </div>
+
+      <div id="info-panel" class="info-panel hidden">
+        <div class="info-poster" id="info-poster"></div>
+        <div class="info-text">
+          <div class="info-meta" id="info-meta"></div>
+          <h1 class="info-title" id="info-title"></h1>
+          <p class="info-overview" id="info-overview"></p>
+          <div class="info-genres" id="info-genres"></div>
+        </div>
+      </div>
+
+      <!-- Nav -->
+      <button id="btn-prev" class="nav-btn nav-prev" aria-label="Previous">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button id="btn-next" class="nav-btn nav-next" aria-label="Next">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+
+      <!-- Top bar -->
+      <div class="top-bar">
+        <div class="counter" id="counter"></div>
+        <div class="top-actions">
+          <div class="fetch-indicator hidden" id="fetch-indicator"></div>
+          <button id="btn-slideshow" class="chip-btn" aria-pressed="false" title="Auto slideshow (Space)">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 5.2v5.6l4.2-2.8z" fill="currentColor" stroke="none"/></svg>
+            <span id="slideshow-label">Slideshow</span>
+          </button>
+          <button id="btn-fullscreen" class="chip-btn" title="Fullscreen (F)">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6V2.5h3.5M14 6V2.5h-3.5M2 10v3.5h3.5M14 10v3.5h-3.5"/></svg>
+          </button>
+          <button id="btn-config" class="chip-btn" title="Filters">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M4 8h8M6 12h4"/></svg>
+          </button>
+          <button id="btn-exit" class="chip-btn" title="Exit (Esc)">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="slide-progress" class="slide-progress hidden"><div id="slide-progress-bar" class="slide-progress-bar"></div></div>
+
+      <!-- Slideshow interval picker -->
+      <div id="slide-picker" class="popover slide-picker hidden">
+        <div class="popover-label">Change every</div>
+        <div class="pill-row" id="slide-intervals"></div>
+      </div>
+
+      <!-- In-player translucent filter overlay -->
+      <div id="filter-overlay" class="filter-overlay hidden">
+        <div class="filter-sheet">
+          <div class="filter-sheet-head">
+            <span class="filter-sheet-title">Filters</span>
+            <button id="btn-filter-close" class="chip-btn" title="Close">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+              Close
+            </button>
+          </div>
+          <div class="filter-sheet-body">
+            <section class="cfg-group">
+              <div class="cfg-label">Sort by</div>
+              <div class="pill-row" id="pf-sort"></div>
+            </section>
+            <section class="cfg-group" id="pf-sort-dir-group">
+              <div class="cfg-label">Order</div>
+              <div class="pill-row" id="pf-sort-dir"></div>
+            </section>
+            <section class="cfg-group" id="pf-type-group">
+              <div class="cfg-label">Type</div>
+              <div class="pill-row" id="pf-type"></div>
+            </section>
+            <section class="cfg-group" id="pf-genre-group">
+              <div class="cfg-label">Genre</div>
+              <div class="pill-row" id="pf-genre"></div>
+            </section>
+            <section class="cfg-group" id="pf-runtime-group">
+              <div class="cfg-label">Runtime</div>
+              <div class="pill-row" id="pf-runtime"></div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STAGE: MESSAGE (empty / error) -->
+  <section id="stage-message" class="stage hidden">
+    <div class="panel">
+      <div class="eyebrow" id="message-eyebrow">Immersive</div>
+      <h1 class="panel-title" id="message-title"></h1>
+      <p class="panel-sub" id="message-sub"></p>
+      <button id="message-action" class="btn-primary hidden"></button>
+    </div>
+  </section>
+
+  <script src="../lib/crypto.js"></script>
+  <script src="../lib/tmdb.js"></script>
+  <script src="immersive.js"></script>
+</body>
+</html>

@@ -12,6 +12,17 @@
   --accent:        #111111;
   --imdb-yellow:   #F5C518;
   --error:         #d32f2f;
+
+  /* Semantic action accents — each button hints at what it does, so the row
+     doesn't read as one flat block of identical controls. */
+  --act-copy:      #2f6f4f;   /* green — take a copy */
+  --act-download:  #2563a8;   /* blue — pull a file down */
+  --act-immersive: #b8901c;   /* amber (imdb) — play */
+  --act-refresh:   #6d4bb3;   /* indigo — sync (muted, not neon) */
+  --act-delete:    #c0392b;   /* red — destructive */
+  --act-settings:  #4a4a4a;   /* neutral graphite */
+  --act-export:    #2f6f4f;
+  --act-import:    #2563a8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -25,6 +36,16 @@
     --border:        rgba(255,255,255,0.1);
     --border-focus:  rgba(255,255,255,0.3);
     --accent:        #f0f0f0;
+
+    /* Brighter accents so they read against the dark surface. */
+    --act-copy:      #3ec98a;
+    --act-download:  #4d9fe6;
+    --act-immersive: #f5c518;
+    --act-refresh:   #a98bec;
+    --act-delete:    #ef5b4c;
+    --act-settings:  #c9c9c9;
+    --act-export:    #3ec98a;
+    --act-import:    #4d9fe6;
   }
 }
 
@@ -102,7 +123,7 @@ body {
   color: var(--text-secondary);
   cursor: pointer;
   flex-shrink: 0;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 
 .icon-btn:hover {
@@ -113,6 +134,25 @@ body {
 .icon-btn:focus-visible {
   outline: 2px solid var(--imdb-yellow);
   outline-offset: 1px;
+}
+
+/* Per-icon action accents on hover. */
+.icon-btn.refresh-btn:hover {
+  border-color: var(--act-refresh);
+  color: var(--act-refresh);
+  background: color-mix(in srgb, var(--act-refresh) 12%, transparent);
+}
+
+.icon-btn#btn-prefs:hover {
+  border-color: var(--act-settings);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--act-settings) 14%, transparent);
+}
+
+.icon-btn#btn-immersive-all:hover {
+  border-color: var(--imdb-yellow);
+  color: var(--imdb-yellow);
+  background: color-mix(in srgb, var(--imdb-yellow) 16%, transparent);
 }
 
 .btn-primary-sm {
@@ -202,8 +242,8 @@ body {
 
 .list-card {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   transition: background 0.1s;
@@ -217,6 +257,12 @@ body {
   border-bottom: none;
 }
 
+.list-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
 .list-card-info {
   flex: 1;
   min-width: 0;
@@ -224,8 +270,14 @@ body {
 
 .list-card-actions-row {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 6px;
-  margin-top: 8px;
+}
+
+.list-card-actions-left {
+  display: flex;
+  gap: 6px;
 }
 
 .list-action-btn {
@@ -238,7 +290,7 @@ body {
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 
 .list-action-btn:hover {
@@ -291,8 +343,9 @@ body {
 }
 
 .list-card-actions .icon-btn.delete:hover {
-  color: var(--error);
-  border-color: var(--error);
+  color: var(--act-delete);
+  border-color: var(--act-delete);
+  background: color-mix(in srgb, var(--act-delete) 12%, transparent);
 }
 
 /* --- Footer --- */
@@ -315,12 +368,31 @@ body {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 
 .btn-footer:hover {
   border-color: var(--border-focus);
   color: var(--text-primary);
+}
+
+#btn-export:hover {
+  border-color: var(--act-export);
+  color: var(--act-export);
+  background: color-mix(in srgb, var(--act-export) 12%, transparent);
+}
+
+#btn-import:hover {
+  border-color: var(--act-import);
+  color: var(--act-import);
+  background: color-mix(in srgb, var(--act-import) 12%, transparent);
+}
+
+/* The Clear (key) button in prefs is destructive — tint it red on hover. */
+#btn-clear-key:hover {
+  border-color: var(--act-delete);
+  color: var(--act-delete);
+  background: color-mix(in srgb, var(--act-delete) 12%, transparent);
 }
 
 .btn-footer:focus-visible {
@@ -533,6 +605,103 @@ select.input {
 .btn-save:focus-visible {
   outline: 2px solid var(--imdb-yellow);
   outline-offset: 2px;
+}
+
+/* --- List card actions row (Copy / Download left, Immersive right) --- */
+
+.list-card-actions-row {
+  justify-content: space-between;
+}
+
+.list-card-actions-left {
+  display: flex;
+  gap: 6px;
+}
+
+/* Action-matched hovers: tinted fill + matching border, so each button reads
+   as its own action instead of a uniform grey row. */
+.list-action-btn.copy-btn:hover {
+  background: color-mix(in srgb, var(--act-copy) 14%, transparent);
+  border-color: var(--act-copy);
+  color: var(--act-copy);
+}
+
+.list-action-btn.download-btn:hover {
+  background: color-mix(in srgb, var(--act-download) 14%, transparent);
+  border-color: var(--act-download);
+  color: var(--act-download);
+}
+
+.list-action-btn.immersive-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.list-action-btn.immersive-btn:hover {
+  background: var(--imdb-yellow);
+  color: #000000;
+  border-color: var(--imdb-yellow);
+}
+
+.list-action-btn.immersive-btn svg {
+  flex-shrink: 0;
+}
+
+/* --- Preferences: TMDB key --- */
+
+.prefs-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0 18px;
+}
+
+.label-spaced {
+  margin-top: 16px;
+}
+
+.key-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.key-save-btn {
+  margin-top: 0;
+  flex: 1;
+}
+
+.key-actions .btn-footer {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 0 16px;
+  height: 38px;
+}
+
+.key-status {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.key-status.error {
+  color: var(--error);
+  border-color: rgba(211,47,47,0.35);
+  background: rgba(211,47,47,0.08);
+}
+
+.key-status.ok {
+  color: #2e7d32;
+  border-color: rgba(46,125,50,0.35);
+  background: rgba(46,125,50,0.08);
 }
 
 /* --- Hidden utility --- */

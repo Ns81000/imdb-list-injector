@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "IMDB List Injector",
-  "version": "1.1.0",
-  "description": "Save IMDB lists and export them as CSV, JSON, Markdown, or plain text.",
+  "version": "1.2.0",
+  "description": "Save IMDB lists, export them as CSV/JSON/Markdown/text, and project them as a full-screen cinematic slideshow.",
   "minimum_chrome_version": "114",
 
   "permissions": [
@@ -14,7 +14,7 @@
   ],
 
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://www.imdb.com; object-src 'none';"
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://image.tmdb.org; connect-src https://www.imdb.com https://api.themoviedb.org; object-src 'none';"
   },
 
   "side_panel": {
