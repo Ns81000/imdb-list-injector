@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "IMDB List Injector",
+  "name": "Zoom Out",
   "version": "1.4.0",
-  "description": "Save IMDB lists, export them as CSV/JSON/Markdown/text, and project them as a full-screen cinematic slideshow.",
+  "description": "Every list deserves the big screen. Save IMDB lists, export them as CSV/JSON/Markdown/text, and project them as a full-screen cinematic slideshow.",
   "minimum_chrome_version": "114",
 
   "permissions": [
@@ -36,7 +36,7 @@
   },
 
   "action": {
-    "default_title": "IMDB List Injector",
+    "default_title": "Zoom Out",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

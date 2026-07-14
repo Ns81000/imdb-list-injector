@@ -1,14 +1,18 @@
-# IMDB List Injector
+# Zoom Out
+
+> **Every list deserves the big screen.**
 
 ![Version](https://img.shields.io/badge/version-1.4.0-blue.svg?style=flat-square)
 ![Manifest](https://img.shields.io/badge/manifest-v3-green.svg?style=flat-square)
 ![Browser](https://img.shields.io/badge/browser-chrome-yellow.svg?style=flat-square)
 
-IMDB List Injector is a Chrome extension that parses any public IMDB list into
+**Zoom Out** (formerly *IMDB List Injector*) is a Chrome extension that parses any public IMDB list into
 clean, structured data you can **copy or download** in seconds — ready for an AI
 chat, a spreadsheet, or a document — and then **project that same list as a
 full-screen cinematic experience** with posters and backdrops pulled live from
 TMDB.
+
+**🌐 Landing page:** [ns81000.github.io/imdb-list-injector](https://ns81000.github.io/imdb-list-injector/)
 
 Everything runs and is stored locally in your browser.
 
@@ -114,7 +118,7 @@ After pulling changes, click the **refresh** icon on the extension card in
 ## Usage
 
 ### Saving and exporting a list
-1. Open **IMDB List Injector** from your toolbar or the side panel.
+1. Open **Zoom Out** from your toolbar or the side panel.
 2. Click **Add List**, paste a public IMDB list URL
    (`https://www.imdb.com/list/ls...`), and fetch it.
 3. The list is saved to your library.

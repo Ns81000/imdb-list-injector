@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zoom Out — Every list deserves the big screen</title>
+  <meta name="description" content="Zoom Out turns any public IMDB list into clean, structured data — and projects it as a full-screen cinematic experience. Free, open source, and fully local.">
+  <meta property="og:title" content="Zoom Out">
+  <meta property="og:description" content="Every list deserves the big screen. Save IMDB lists, export them anywhere, and project them as a cinematic slideshow.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#fffaf0">
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="scroll-progress" aria-hidden="true"></div>
+
+  <!-- ===================== NAV ===================== -->
+  <header class="nav" id="top">
+    <div class="nav-inner">
+      <a class="brand" href="#top" aria-label="Zoom Out — home">
+        <img src="assets/logo.svg" alt="" width="34" height="34" class="brand-mark">
+        <span class="brand-name">Zoom&nbsp;Out</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#immersive">Immersive</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#install">Install</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="btn btn-ghost btn-sm" href="https://github.com/Ns81000/imdb-list-injector" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          <span>GitHub</span>
+        </a>
+        <a class="btn btn-solid btn-sm" href="#install">Get the extension</a>
+      </div>
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span>
+      </button>
+    </div>
+    <div class="nav-drawer" hidden>
+      <a href="#features">Features</a>
+      <a href="#immersive">Immersive</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/Ns81000/imdb-list-injector" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ===================== HERO ===================== -->
+    <section class="hero">
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <p class="hero-kicker reveal"><span class="badge-pill">Free &amp; open-source Chrome extension</span></p>
+          <h1 class="hero-title" data-split>Every list deserves the big screen.</h1>
+          <p class="hero-sub reveal" data-delay="400">
+            Zoom Out captures any public IMDB list as clean, structured data you can
+            copy or export anywhere — then steps back and projects it as a full-screen,
+            backdrop-driven cinema of everything you want to watch.
+          </p>
+          <div class="hero-cta reveal" data-delay="550">
+            <a class="btn btn-solid btn-lg" href="#install">
+              Install Zoom Out
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5"/><path d="M4 21h16"/></svg>
+            </a>
+            <a class="btn btn-outline btn-lg" href="#immersive">See immersive mode</a>
+          </div>
+          <div class="hero-meta reveal" data-delay="700">
+            <span>MIT licensed</span><i></i><span>Manifest V3</span><i></i><span>No servers, ever</span>
+          </div>
+        </div>
+
+        <div class="hero-art reveal" data-delay="250" aria-hidden="true">
+          <!-- layered color panels stacked behind the popup -->
+          <div class="hero-panel hp-lavender"></div>
+          <div class="hero-panel hp-peach"></div>
+
+          <!-- Product mockup: the Zoom Out popup capturing a list -->
+          <div class="mock">
+            <div class="mock-head">
+              <img src="assets/logo.svg" alt="" width="22" height="22">
+              <span class="mock-title">Zoom Out</span>
+              <span class="mock-status">● Ready</span>
+            </div>
+            <div class="mock-url">
+              <span class="mock-url-text">imdb.com/list/ls0559…</span>
+              <span class="mock-capture">Capture</span>
+            </div>
+            <div class="mock-list">
+              <div class="mock-row">
+                <span class="mock-dot md-pink"></span>
+                <span class="mock-row-title">Interstellar</span>
+                <span class="mock-row-meta">2014 · ★ 8.7</span>
+              </div>
+              <div class="mock-row">
+                <span class="mock-dot md-lavender"></span>
+                <span class="mock-row-title">Blade Runner 2049</span>
+                <span class="mock-row-meta">2017 · ★ 8.0</span>
+              </div>
+              <div class="mock-row">
+                <span class="mock-dot md-peach"></span>
+                <span class="mock-row-title">Dune: Part Two</span>
+                <span class="mock-row-meta">2024 · ★ 8.5</span>
+              </div>
+              <div class="mock-row mock-row-faded">
+                <span class="mock-dot md-ochre"></span>
+                <span class="mock-row-title">Spirited Away</span>
+                <span class="mock-row-meta">2001 · ★ 8.6</span>
+              </div>
+            </div>
+            <div class="mock-exports">
+              <span class="mock-chip mc-pink">CSV</span>
+              <span class="mock-chip mc-lavender">JSON</span>
+              <span class="mock-chip mc-peach">Markdown</span>
+              <span class="mock-chip mc-cream">Text</span>
+            </div>
+            <div class="mock-cinema">
+              <img src="assets/stills/interstellar-bd.jpg" alt="">
+              <span class="mock-cinema-label">▶ Immersive mode</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FILM STRIP MARQUEE ===================== -->
+    <section class="film" id="film" aria-hidden="true">
+      <div class="film-track">
+        <div class="film-run">
+          <span>CSV</span><b>·</b><span>JSON</span><b>·</b><span>Markdown</span><b>·</b><span>Plain text</span><b>·</b>
+          <span>Full-list pagination</span><b>·</b><span>Local library</span><b>·</b><span>Cinematic slideshow</span><b>·</b>
+          <span>Live filters</span><b>·</b><span>Clips reel</span><b>·</b><span>Encrypted keys</span><b>·</b>
+        </div>
+        <div class="film-run" aria-hidden="true">
+          <span>CSV</span><b>·</b><span>JSON</span><b>·</b><span>Markdown</span><b>·</b><span>Plain text</span><b>·</b>
+          <span>Full-list pagination</span><b>·</b><span>Local library</span><b>·</b><span>Cinematic slideshow</span><b>·</b>
+          <span>Live filters</span><b>·</b><span>Clips reel</span><b>·</b><span>Encrypted keys</span><b>·</b>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== HOW IT WORKS ===================== -->
+    <section class="section how" id="how">
+      <div class="section-head">
+        <p class="eyebrow reveal">How it works</p>
+        <h2 class="reveal" data-delay="80">Paste a link. Own the list.</h2>
+      </div>
+      <ol class="steps">
+        <li class="step step-pink reveal" data-delay="0">
+          <span class="step-num">01</span>
+          <h3>Capture</h3>
+          <p>Paste any public IMDB list URL. Zoom Out fetches <strong>every page</strong> — title, year, rating, votes, genre, runtime, and plot for each entry — and saves it to your local library.</p>
+        </li>
+        <li class="step step-lavender reveal" data-delay="140">
+          <span class="step-num">02</span>
+          <h3>Export</h3>
+          <p>Copy or download the whole list as <strong>CSV, JSON, Markdown, or plain text</strong> — ready for a spreadsheet, a document, or an AI chat. One click, your format.</p>
+        </li>
+        <li class="step step-peach reveal" data-delay="280">
+          <span class="step-num">03</span>
+          <h3>Project</h3>
+          <p>Hit <strong>Immersive</strong> and the list becomes a full-screen slideshow of posters and backdrops — sortable, filterable, and playable like a private trailer reel.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ===================== FEATURES ===================== -->
+    <section class="section features" id="features">
+      <div class="section-head">
+        <p class="eyebrow reveal">Features</p>
+        <h2 class="reveal" data-delay="80">Small extension. Wide angle.</h2>
+      </div>
+
+      <div class="feature-grid">
+        <article class="card fc-pink reveal" data-delay="0">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="2.4"/></svg>
+          </div>
+          <h3>Deep metadata, every page</h3>
+          <p>Not just the first 250 rows. Zoom Out paginates through the entire list and extracts nine fields per title, cleanly structured.</p>
+        </article>
+
+        <article class="card fc-teal reveal" data-delay="80">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/><path d="M9 12h6"/></svg>
+          </div>
+          <h3>Four export formats</h3>
+          <p>CSV with injection guarding, stable-schema JSON, paste-ready Markdown tables, and readable plain text. Copy to clipboard or download.</p>
+        </article>
+
+        <article class="card fc-lavender reveal" data-delay="160">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg>
+          </div>
+          <h3>A library that stays yours</h3>
+          <p>Save lists, refresh them on demand, and back up or restore the whole collection as a single JSON file. Everything lives in your browser.</p>
+        </article>
+
+        <article class="card fc-peach reveal" data-delay="80">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m9 9 5 3-5 3V9z"/></svg>
+          </div>
+          <h3>Full-screen cinema player</h3>
+          <p>Backdrop-driven slideshow with poster, overview, rating, and genres — streaming in as images resolve, so you never wait on the whole list.</p>
+        </article>
+
+        <article class="card fc-ochre reveal" data-delay="160">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+          </div>
+          <h3>Filters built from your data</h3>
+          <p>Sort, type, genre, and runtime pills are generated from the list itself — a short-runtime TV list gets sensible buckets, not movie-length ones.</p>
+        </article>
+
+        <article class="card fc-cream reveal" data-delay="240">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          </div>
+          <h3>Encrypted at rest</h3>
+          <p>Your TMDB key is sealed with AES-256-GCM behind a passphrase — PBKDF2-SHA256, 310,000 iterations. The plaintext is never persisted.</p>
+        </article>
+      </div>
+
+      <div class="stats reveal">
+        <div class="stat"><span class="stat-n" data-count="9">0</span><span class="stat-l">metadata fields per title</span></div>
+        <div class="stat"><span class="stat-n" data-count="4">0</span><span class="stat-l">export formats</span></div>
+        <div class="stat"><span class="stat-n" data-count="100" data-suffix="%">0</span><span class="stat-l">stored locally</span></div>
+        <div class="stat"><span class="stat-n" data-count="0">0</span><span class="stat-l">servers &amp; trackers</span></div>
+      </div>
+    </section>
+
+    <!-- ===================== IMMERSIVE SHOWCASE ===================== -->
+    <section class="section immersive" id="immersive">
+      <div class="section-head">
+        <p class="eyebrow reveal">Immersive mode</p>
+        <h2 class="reveal" data-delay="80">Step back. Watch it all.</h2>
+        <p class="section-sub reveal" data-delay="160">
+          One keypress turns a spreadsheet of titles into a wall of cinema. Posters and
+          high-resolution backdrops stream in live from TMDB while you browse, shuffle,
+          and filter without ever leaving the player.
+        </p>
+      </div>
+
+      <div class="theater reveal" data-delay="120">
+        <div class="theater-screen" id="theater">
+          <div class="theater-backdrop" aria-hidden="true">
+            <img class="bd-layer" id="bd-a" src="assets/stills/interstellar-bd.jpg" alt="">
+            <img class="bd-layer" id="bd-b" src="" alt="">
+          </div>
+          <div class="theater-shade" aria-hidden="true"></div>
+          <div class="theater-info">
+            <div class="theater-poster" aria-hidden="true">
+              <img id="theater-poster-img" src="assets/stills/interstellar-p.jpg" alt="" width="110" height="165">
+            </div>
+            <div class="theater-text">
+              <span class="theater-label">NOW SHOWING · FROM YOUR LIST</span>
+              <span class="theater-title" id="theater-title">Interstellar</span>
+              <div class="theater-meta">
+                <span id="theater-year">2014</span><i></i>
+                <span id="theater-runtime">2h 49m</span><i></i>
+                <span class="theater-rating">★ <span id="theater-rating">8.5</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="theater-keys" aria-label="Keyboard controls">
+          <div class="key-group"><kbd>←</kbd><kbd>→</kbd><span>navigate</span></div>
+          <div class="key-group"><kbd>Space</kbd><span>slideshow</span></div>
+          <div class="key-group"><kbd>G</kbd><span>clips reel</span></div>
+          <div class="key-group"><kbd>F</kbd><span>fullscreen</span></div>
+          <div class="key-group"><kbd>Esc</kbd><span>exit</span></div>
+        </div>
+      </div>
+
+      <div class="immersive-points">
+        <div class="point reveal" data-delay="0">
+          <h4>Clips, one key away</h4>
+          <p>Press <kbd>G</kbd> on any title for a full-screen reel of its own high-resolution backdrops — prefetched, looping, never repeating the frame you came from.</p>
+        </div>
+        <div class="point reveal" data-delay="100">
+          <h4>Instant navigation</h4>
+          <p>Backdrops and posters for upcoming titles are decoded ahead of time — ahead, behind, and the next shuffled picks — so every arrow press lands instantly.</p>
+        </div>
+        <div class="point reveal" data-delay="200">
+          <h4>Never a black frame</h4>
+          <p>Missing image? You get a clean titled placeholder, not a void. Rejected API key? A clear message, not a silent slideshow of nothing.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== PRIVACY ===================== -->
+    <section class="section privacy" id="privacy">
+      <div class="privacy-inner reveal">
+        <div class="privacy-copy">
+          <p class="eyebrow eyebrow-on-dark">Private by design</p>
+          <h2>Your lists never leave your browser.</h2>
+          <p>
+            Zoom Out has no backend, no analytics, and no account. The extension talks to
+            exactly two places — <code>imdb.com</code> to read public lists and
+            <code>themoviedb.org</code> for artwork — and its Content Security Policy
+            forbids everything else.
+          </p>
+          <ul class="privacy-list">
+            <li>All list data lives in <code>chrome.storage.local</code></li>
+            <li>TMDB key encrypted with AES-256-GCM + your passphrase</li>
+            <li>Decrypted key held in session memory only, cleared on close</li>
+            <li>Open source, MIT licensed — read every line</li>
+          </ul>
+        </div>
+        <div class="privacy-visual" aria-hidden="true">
+          <div class="vault">
+            <div class="vault-ring r1"></div>
+            <div class="vault-ring r2"></div>
+            <div class="vault-ring r3"></div>
+            <div class="vault-core">
+              <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1.6"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== INSTALL ===================== -->
+    <section class="section install" id="install">
+      <div class="section-head">
+        <p class="eyebrow reveal">Installation</p>
+        <h2 class="reveal" data-delay="80">Rolling in under a minute.</h2>
+        <p class="section-sub reveal" data-delay="160">
+          Zoom Out loads as an unpacked extension — no store account needed, nothing to sign up for.
+        </p>
+      </div>
+
+      <div class="install-steps">
+        <div class="istep reveal" data-delay="0">
+          <span class="istep-num in-pink">1</span>
+          <div class="istep-body">
+            <h3>Get the code</h3>
+            <p>Clone the repository, or <a href="https://github.com/Ns81000/imdb-list-injector/archive/refs/heads/main.zip">download the ZIP</a> and extract it anywhere.</p>
+            <div class="codeblock">
+              <code id="clone-cmd">git clone https://github.com/Ns81000/imdb-list-injector.git</code>
+              <button class="copy-btn" data-copy="clone-cmd" aria-label="Copy command">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="istep reveal" data-delay="90">
+          <span class="istep-num in-teal">2</span>
+          <div class="istep-body">
+            <h3>Open Chrome's extensions page</h3>
+            <p>Type this into the address bar and press Enter.</p>
+            <div class="codeblock">
+              <code id="ext-url">chrome://extensions</code>
+              <button class="copy-btn" data-copy="ext-url" aria-label="Copy URL">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="istep reveal" data-delay="180">
+          <span class="istep-num in-lavender">3</span>
+          <div class="istep-body">
+            <h3>Enable Developer mode</h3>
+            <p>Flip the <strong>Developer mode</strong> toggle in the top-right corner of the extensions page.</p>
+          </div>
+        </div>
+
+        <div class="istep reveal" data-delay="270">
+          <span class="istep-num in-peach">4</span>
+          <div class="istep-body">
+            <h3>Load unpacked</h3>
+            <p>Click <strong>Load unpacked</strong> and select the repository folder. Zoom Out appears in your toolbar — pin it, and you're done.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="install-extra reveal">
+        <div class="extra-card xc-lavender">
+          <h4>Unlock immersive mode <span class="tag">optional</span></h4>
+          <ol>
+            <li>Grab a free API key from <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">TMDB → Settings → API</a> — a v3 key or v4 read token both work.</li>
+            <li>In Zoom Out, open <strong>Settings</strong> (gear icon) → <strong>TMDB API Key</strong>.</li>
+            <li>Paste the key, choose a passphrase, and save. It's verified, encrypted, and stored locally.</li>
+          </ol>
+        </div>
+        <div class="extra-card xc-peach">
+          <h4>Updating <span class="tag">later</span></h4>
+          <ol>
+            <li>Pull the latest changes: <code>git pull</code>.</li>
+            <li>On <code>chrome://extensions</code>, hit the ↻ refresh icon on the Zoom Out card.</li>
+            <li>Your library, settings, and encrypted key all stay intact.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FINAL CTA ===================== -->
+    <section class="section outro">
+      <div class="outro-inner reveal">
+        <img src="assets/logo.svg" alt="" width="72" height="72" class="outro-mark">
+        <h2>Ready when the lights go down.</h2>
+        <p>Free forever. Open source. Yours alone.</p>
+        <div class="hero-cta">
+          <a class="btn btn-solid btn-lg" href="https://github.com/Ns81000/imdb-list-injector" target="_blank" rel="noopener">View on GitHub</a>
+          <a class="btn btn-outline btn-lg" href="#install">Install guide</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="assets/logo.svg" alt="" width="26" height="26">
+        <span>Zoom Out</span>
+      </div>
+      <p class="footer-note">
+        Every list deserves the big screen. · MIT License ·
+        Not affiliated with IMDb or TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.
+      </p>
+      <a class="footer-gh" href="https://github.com/Ns81000/imdb-list-injector" target="_blank" rel="noopener">github.com/Ns81000/imdb-list-injector</a>
+    </div>
+    <!-- signature footer mountains -->
+    <div class="footer-horizon" aria-hidden="true">
+      <svg viewBox="0 0 1440 160" preserveAspectRatio="xMidYMax slice">
+        <path d="M-40 160 Q180 20 400 160 Z" fill="#b8a4ed" stroke="#b8a4ed" stroke-width="24" stroke-linejoin="round"/>
+        <path d="M260 160 Q520 -10 800 160 Z" fill="#ffb084" stroke="#ffb084" stroke-width="24" stroke-linejoin="round"/>
+        <path d="M660 160 Q880 40 1100 160 Z" fill="#e8b94a" stroke="#e8b94a" stroke-width="24" stroke-linejoin="round"/>
+        <path d="M960 160 Q1220 10 1480 160 Z" fill="#a4d4c5" stroke="#a4d4c5" stroke-width="24" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  </footer>
+
+  <!-- ===================== MOBILE OVERLAY ===================== -->
+  <div class="mobile-overlay" id="mobileOverlay" aria-modal="true" role="dialog">
+    <div class="mobile-overlay-card">
+      <div class="mobile-overlay-illustration">
+        <img src="assets/logo.svg" alt="Zoom Out Logo" class="mobile-logo">
+      </div>
+
+      <h2 class="mobile-overlay-title">Every list deserves the big screen.</h2>
+
+      <p class="mobile-overlay-text">
+        Zoom Out is a cinematic extension designed for desktop screens to project your library as a backdrop-driven widescreen player.
+      </p>
+
+      <div class="desktop-badge">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <span>Desktop Browser Required</span>
+      </div>
+
+      <div class="compatible-browsers">
+        Compatible with Chrome · Edge · Brave · Arc
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
