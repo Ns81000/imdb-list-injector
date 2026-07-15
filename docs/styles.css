@@ -55,6 +55,10 @@
 
 /* ---------- reset ---------- */
 *, *::before, *::after { box-sizing: border-box; }
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
 html {
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--nav-h) + 16px);
@@ -68,7 +72,6 @@ body {
   background: var(--canvas);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  overflow-x: hidden;
 }
 img { display: block; max-width: 100%; }
 a { color: var(--ink); }
