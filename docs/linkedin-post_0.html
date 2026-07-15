@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Post Generator — Extension Overview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Reset & Figma Canvas Styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      background-color: #121212;
+      color: #e5e5e5;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px;
+      overflow-y: auto;
+    }
+
+    /* Editor Control Header */
+    .editor-header {
+      width: 1080px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      background: #1e1e1e;
+      padding: 16px 24px;
+      border-radius: 12px;
+      border: 1px solid #2d2d2d;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .editor-info h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .editor-info p {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .download-btn {
+      background: #ff4d8b;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s ease, transform 0.16s cubic-bezier(0.23, 1, 0.32, 1);
+      box-shadow: 0 4px 12px rgba(255, 77, 139, 0.25);
+    }
+
+    .download-btn:hover {
+      background: #e0447a;
+      transform: translateY(-1px);
+    }
+
+    .download-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* 1080x1350 LinkedIn Portrait Card Container */
+    .post-wrapper {
+      position: relative;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    #post-container {
+      width: 1080px;
+      height: 1350px;
+      background-color: #fffaf0; /* --canvas */
+      padding: 96px 80px 120px 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      color: #0a0a0a; /* --ink */
+      overflow: hidden;
+    }
+
+    /* Top branding / kicker row */
+    .post-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-logo {
+      width: 56px;
+      height: 56px;
+    }
+
+    .brand-name {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #0a0a0a;
+    }
+
+    .badge {
+      background: rgba(255, 77, 139, 0.1);
+      color: #ff4d8b; /* Pink brand tint */
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 8px 18px;
+      border-radius: 99px;
+    }
+
+    /* Main Split Layout Grid */
+    .hero-split {
+      display: grid;
+      grid-template-columns: 480px 380px;
+      gap: 60px;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      margin: auto 0; /* Vertically center the layout on the canvas */
+    }
+
+    /* Left Copy Column */
+    .hero-copy {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+    }
+
+    .hero-kicker {
+      margin-bottom: 24px;
+    }
+
+    .badge-pill {
+      background: rgba(255, 77, 139, 0.1);
+      color: #ff4d8b;
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .hero-title {
+      font-size: 64px;
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -2.5px;
+      color: #0a0a0a;
+      margin-bottom: 24px;
+    }
+
+    .hero-subtitle {
+      font-size: 18.5px;
+      color: #5a5a5a;
+      line-height: 1.5;
+      font-weight: 400;
+      margin-bottom: 32px;
+    }
+
+    /* Buttons block */
+    .hero-cta {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .btn-solid {
+      background: #ff4d8b;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(255, 77, 139, 0.2);
+    }
+
+    .btn-outline {
+      border: 1px solid rgba(10, 10, 10, 0.15);
+      color: #0a0a0a;
+    }
+
+    /* Meta text */
+    .hero-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: #888888;
+    }
+
+    .hero-meta i {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(10, 10, 10, 0.15);
+    }
+
+    /* Right Art Column (Mockup) */
+    .hero-art {
+      position: relative;
+      width: 100%;
+      height: 460px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-panel {
+      position: absolute;
+      inset: 20px;
+      border-radius: 24px;
+    }
+
+    .hp-lavender {
+      background: #b8a4ed;
+      transform: rotate(4deg) translate(14px, -10px);
+    }
+
+    .hp-peach {
+      background: #ffb084;
+      transform: rotate(-3deg) translate(-12px, 12px);
+    }
+
+    .mock {
+      position: relative;
+      z-index: 10;
+      background: #fffaf0; /* --canvas */
+      border: 1px solid rgba(10, 10, 10, 0.08);
+      border-radius: 18px;
+      padding: 20px;
+      width: 360px;
+      box-shadow: 0 24px 60px rgba(10, 10, 10, 0.12);
+    }
+
+    .mock-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 12px;
+    }
+
+    .mock-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #0a0a0a;
+    }
+
+    .mock-status {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 600;
+      color: #22c55e;
+    }
+
+    .mock-url {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f5f0e0; /* --surface-card */
+      border-radius: 8px;
+      padding: 8px 8px 8px 12px;
+      margin-bottom: 12px;
+    }
+
+    .mock-url-text {
+      flex: 1;
+      font-size: 12px;
+      color: #6a6a6a;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .mock-capture {
+      flex: none;
+      font-size: 11px;
+      font-weight: 600;
+      color: #ffffff;
+      background: #0a0a0a;
+      border-radius: 6px;
+      padding: 6px 12px;
+    }
+
+    .mock-list {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .mock-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #faf5e8; /* --surface-soft */
+      border-radius: 6px;
+      padding: 7px 10px;
+    }
+
+    .mock-row-faded {
+      opacity: 0.55;
+    }
+
+    .mock-dot {
+      flex: none;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .md-pink { background: #ff4d8b; }
+    .md-lavender { background: #b8a4ed; }
+    .md-peach { background: #ffb084; }
+    .md-ochre { background: #e8b94a; }
+
+    .mock-row-title {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #0a0a0a;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .mock-row-meta {
+      margin-left: auto;
+      flex: none;
+      font-size: 11px;
+      color: #6a6a6a;
+    }
+
+    .mock-exports {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .mock-chip {
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 99px;
+      padding: 5px 12px;
+      color: #0a0a0a;
+    }
+
+    .mc-pink { background: #ff4d8b; color: #ffffff; }
+    .mc-lavender { background: #b8a4ed; }
+    .mc-peach { background: #ffb084; }
+    .mc-cream { background: #f5f0e0; }
+
+    .mock-cinema {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      aspect-ratio: 21 / 7;
+      border: 1px solid rgba(10, 10, 10, 0.05);
+    }
+
+    .mock-cinema img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .mock-cinema-label {
+      position: absolute;
+      left: 10px;
+      bottom: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #ffffff;
+      background: rgba(10, 10, 10, 0.55);
+      border-radius: 99px;
+      padding: 5px 12px;
+    }
+
+    /* Signature footer mountains/circles overlay */
+    .footer-horizon {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      line-height: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .footer-horizon svg {
+      width: 100%;
+      height: 150px;
+      display: block;
+    }
+
+    /* Subtle Footer Row placed on top of hills */
+    .post-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+      font-size: 14px;
+      font-weight: 400 !important; /* Strictly regular font weight */
+      color: #888888; /* Soft grey text */
+      margin-top: 40px;
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .footer-left i {
+      font-style: normal;
+      opacity: 0.5;
+    }
+
+    .footer-right {
+      color: #888888 !important; /* Soft grey matching the rest of footer */
+      font-weight: 400 !important; /* Strictly regular weight */
+      text-decoration: none;
+    }
+  </style>
+  
+  <!-- html2canvas library for screenshotting -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+  <!-- Controls -->
+  <header class="editor-header">
+    <div class="editor-info">
+      <h1>LinkedIn Portrait Post — Launch Overview</h1>
+      <p>Recommended Resolution: 1080 x 1350 px (Aspect Ratio 4:5)</p>
+    </div>
+    <button class="download-btn" id="capture-btn">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+      </svg>
+      Export as Image (PNG)
+    </button>
+  </header>
+
+  <!-- Post Canvas Wrapper -->
+  <div class="post-wrapper">
+    <div id="post-container">
+      
+      <!-- Top Branding Row -->
+      <header class="post-header">
+        <div class="brand">
+          <!-- Inline Logo to avoid CORS issue in html2canvas -->
+          <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Zoom Out logo">
+            <g stroke="#b8a4ed" stroke-width="9" stroke-linecap="round" fill="none">
+              <path d="M30 10 H18 a8 8 0 0 0 -8 8 V30"/>
+              <path d="M98 10 H110 a8 8 0 0 1 8 8 V30"/>
+              <path d="M30 118 H18 a8 8 0 0 1 -8 -8 V98"/>
+              <path d="M98 118 H110 a8 8 0 0 0 8 -8 V98"/>
+            </g>
+            <g stroke="#ffb084" stroke-width="9" stroke-linecap="round" fill="none">
+              <path d="M42 28 H36 a8 8 0 0 0 -8 8 V42"/>
+              <path d="M86 28 H92 a8 8 0 0 1 8 8 V42"/>
+              <path d="M42 100 H36 a8 8 0 0 1 -8 -8 V86"/>
+              <path d="M86 100 H92 a8 8 0 0 0 8 -8 V86"/>
+            </g>
+            <rect x="36" y="45" width="56" height="38" rx="12" fill="#ff4d8b"/>
+            <rect x="48" y="54" width="32" height="20" rx="7" fill="#fffaf0"/>
+            <rect x="58" y="60" width="12" height="8" rx="3.5" fill="#ff4d8b"/>
+          </svg>
+          <span class="brand-name">Zoom Out</span>
+        </div>
+        <div class="badge">Overview</div>
+      </header>
+
+      <!-- Main Split Layout -->
+      <main class="hero-split">
+        
+        <!-- Left Text Copy -->
+        <div class="hero-copy">
+          <p class="hero-kicker">
+            <span class="badge-pill">Chrome Extension</span>
+          </p>
+          <h2 class="hero-title">Every list deserves the big screen.</h2>
+          <p class="hero-subtitle">
+            Zoom Out parses public IMDb lists into CSV, JSON, or Markdown in seconds — then projects them as full-screen, backdrop-driven cinematic slideshows.
+          </p>
+          <div class="hero-cta">
+            <div class="btn btn-solid">
+              Install Zoom Out
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/>
+              </svg>
+            </div>
+            <div class="btn btn-outline">See immersive mode</div>
+          </div>
+          <div class="hero-meta">
+            <span>MIT Licensed</span><i></i><span>Manifest V3</span><i></i><span>100% Local</span>
+          </div>
+        </div>
+
+        <!-- Right Product Mockup Art -->
+        <div class="hero-art">
+          <div class="hero-panel hp-lavender"></div>
+          <div class="hero-panel hp-peach"></div>
+          
+          <div class="mock">
+            <div class="mock-head">
+              <!-- Small Inline SVG Logo inside mockup -->
+              <svg viewBox="0 0 128 128" width="22" height="22">
+                <g stroke="#b8a4ed" stroke-width="9" stroke-linecap="round" fill="none">
+                  <path d="M30 10 H18 a8 8 0 0 0 -8 8 V30"/>
+                  <path d="M98 10 H110 a8 8 0 0 1 8 8 V30"/>
+                  <path d="M30 118 H18 a8 8 0 0 1 -8 -8 V98"/>
+                  <path d="M98 118 H110 a8 8 0 0 0 8 -8 V98"/>
+                </g>
+                <g stroke="#ffb084" stroke-width="9" stroke-linecap="round" fill="none">
+                  <path d="M42 28 H36 a8 8 0 0 0 -8 8 V42"/>
+                  <path d="M86 28 H92 a8 8 0 0 1 8 8 V42"/>
+                  <path d="M42 100 H36 a8 8 0 0 1 -8 -8 V86"/>
+                  <path d="M86 100 H92 a8 8 0 0 0 8 -8 V86"/>
+                </g>
+                <rect x="36" y="45" width="56" height="38" rx="12" fill="#ff4d8b"/>
+                <rect x="48" y="54" width="32" height="20" rx="7" fill="#fffaf0"/>
+                <rect x="58" y="60" width="12" height="8" rx="3.5" fill="#ff4d8b"/>
+              </svg>
+              <span class="mock-title">Zoom Out</span>
+              <span class="mock-status">● Ready</span>
+            </div>
+            <div class="mock-url">
+              <span class="mock-url-text">imdb.com/list/ls0559…</span>
+              <span class="mock-capture">Capture</span>
+            </div>
+            <div class="mock-list">
+              <div class="mock-row">
+                <span class="mock-dot md-pink"></span>
+                <span class="mock-row-title">Interstellar</span>
+                <span class="mock-row-meta">2014 · ★ 8.7</span>
+              </div>
+              <div class="mock-row">
+                <span class="mock-dot md-lavender"></span>
+                <span class="mock-row-title">Blade Runner 2049</span>
+                <span class="mock-row-meta">2017 · ★ 8.0</span>
+              </div>
+              <div class="mock-row">
+                <span class="mock-dot md-peach"></span>
+                <span class="mock-row-title">Dune: Part Two</span>
+                <span class="mock-row-meta">2024 · ★ 8.5</span>
+              </div>
+              <div class="mock-row mock-row-faded">
+                <span class="mock-dot md-ochre"></span>
+                <span class="mock-row-title">Spirited Away</span>
+                <span class="mock-row-meta">2001 · ★ 8.6</span>
+              </div>
+            </div>
+            <div class="mock-exports">
+              <span class="mock-chip mc-pink">CSV</span>
+              <span class="mock-chip mc-lavender">JSON</span>
+              <span class="mock-chip mc-peach">Markdown</span>
+              <span class="mock-chip mc-cream">Text</span>
+            </div>
+            <div class="mock-cinema">
+              <img src="assets/stills/interstellar-bd.jpg" alt="Interstellar Widescreen">
+              <span class="mock-cinema-label">▶ Immersive mode</span>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Overlapping curved signature hills -->
+      <div class="footer-horizon" aria-hidden="true">
+        <svg viewBox="0 0 1440 160" preserveAspectRatio="xMidYMax slice">
+          <path d="M-40 160 Q180 20 400 160 Z" fill="#b8a4ed" stroke="#b8a4ed" stroke-width="24" stroke-linejoin="round"/>
+          <path d="M260 160 Q520 -10 800 160 Z" fill="#ffb084" stroke="#ffb084" stroke-width="24" stroke-linejoin="round"/>
+          <path d="M660 160 Q880 40 1100 160 Z" fill="#e8b94a" stroke="#e8b94a" stroke-width="24" stroke-linejoin="round"/>
+          <path d="M960 160 Q1220 10 1480 160 Z" fill="#a4d4c5" stroke="#a4d4c5" stroke-width="24" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <!-- Footer Row -->
+      <footer class="post-footer">
+        <div class="footer-left">
+          <span>MIT License</span>
+          <i>·</i>
+          <span>Open Source</span>
+        </div>
+        <div class="footer-right">
+          github.com/Ns81000/imdb-list-injector
+        </div>
+      </footer>
+
+    </div>
+  </div>
+
+  <script>
+    // Capture and download PNG flow
+    document.getElementById('capture-btn').addEventListener('click', () => {
+      const container = document.getElementById('post-container');
+      const btn = document.getElementById('capture-btn');
+      
+      btn.disabled = true;
+      btn.innerText = 'Generating image...';
+
+      html2canvas(container, {
+        width: 1080,
+        height: 1350,
+        scale: 2, // Double-scale to export at high resolution (2160x2700) for sharp text
+        useCORS: true,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 1080,
+        windowHeight: 1350
+      }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'zoom-out-linkedin-overview.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+          Export as Image (PNG)
+        `;
+      }).catch(err => {
+        console.error('Capture failed:', err);
+        alert('Failed to generate image. Please check dev console.');
+        btn.disabled = false;
+        btn.innerText = 'Export as Image (PNG)';
+      });
+    });
+  </script>
+</body>
+</html>

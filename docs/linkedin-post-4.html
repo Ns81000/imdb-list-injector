@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Post Generator — Every list deserves the big screen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Reset & Figma Canvas Styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      background-color: #121212;
+      color: #e5e5e5;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px;
+      overflow-y: auto;
+    }
+
+    /* Editor Control Header */
+    .editor-header {
+      width: 1080px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      background: #1e1e1e;
+      padding: 16px 24px;
+      border-radius: 12px;
+      border: 1px solid #2d2d2d;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .editor-info h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .editor-info p {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .download-btn {
+      background: #ff4d8b;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s ease, transform 0.16s cubic-bezier(0.23, 1, 0.32, 1);
+      box-shadow: 0 4px 12px rgba(255, 77, 139, 0.25);
+    }
+
+    .download-btn:hover {
+      background: #e0447a;
+      transform: translateY(-1px);
+    }
+
+    .download-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* 1080x1350 LinkedIn Portrait Card Container */
+    .post-wrapper {
+      position: relative;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    #post-container {
+      width: 1080px;
+      height: 1350px;
+      background-color: #fffaf0; /* --canvas */
+      padding: 96px 80px 120px 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      color: #0a0a0a; /* --ink */
+      overflow: hidden;
+    }
+
+    /* Top branding / kicker row */
+    .post-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-logo {
+      width: 56px;
+      height: 56px;
+    }
+
+    .brand-name {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #0a0a0a;
+    }
+
+    /* Center Outro Block */
+    .outro-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin: auto 0; /* Centers perfectly on the vertical axis */
+      position: relative;
+      z-index: 10;
+    }
+
+    .outro-kicker {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #6a6a6a;
+      margin-bottom: 32px;
+    }
+
+    .outro-logo {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 32px;
+    }
+
+    .outro-title {
+      font-size: 68px;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -2.5px;
+      color: #0a0a0a;
+      margin-bottom: 20px;
+    }
+
+    .outro-subtitle {
+      font-size: 24px;
+      font-weight: 400;
+      color: #5a5a5a;
+      line-height: 1.5;
+    }
+
+    /* Signature footer mountains/circles overlay */
+    .footer-horizon {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      line-height: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .footer-horizon svg {
+      width: 100%;
+      height: 150px;
+      display: block;
+    }
+
+    /* Subtle Footer Row placed on top of hills */
+    .post-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+      font-size: 14px;
+      font-weight: 400 !important; /* Strictly regular font weight */
+      color: #888888; /* Soft grey text */
+      margin-top: 40px;
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .footer-left i {
+      font-style: normal;
+      opacity: 0.5;
+    }
+
+    .footer-right {
+      color: #888888 !important; /* Soft grey matching the rest of footer */
+      font-weight: 400 !important; /* Strictly regular weight */
+      text-decoration: none;
+    }
+  </style>
+  
+  <!-- html2canvas library for screenshotting -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+  <!-- Controls -->
+  <header class="editor-header">
+    <div class="editor-info">
+      <h1>LinkedIn Portrait Post — Final Wrap-Up Post</h1>
+      <p>Recommended Resolution: 1080 x 1350 px (Aspect Ratio 4:5)</p>
+    </div>
+    <button class="download-btn" id="capture-btn">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+      </svg>
+      Export as Image (PNG)
+    </button>
+  </header>
+
+  <!-- Post Canvas Wrapper -->
+  <div class="post-wrapper">
+    <div id="post-container">
+      
+      <!-- Top Branding Row -->
+      <header class="post-header">
+        <div class="brand">
+          <!-- Inline Logo to avoid CORS issue in html2canvas -->
+          <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Zoom Out logo">
+            <g stroke="#b8a4ed" stroke-width="9" stroke-linecap="round" fill="none">
+              <path d="M30 10 H18 a8 8 0 0 0 -8 8 V30"/>
+              <path d="M98 10 H110 a8 8 0 0 1 8 8 V30"/>
+              <path d="M30 118 H18 a8 8 0 0 1 -8 -8 V98"/>
+              <path d="M98 118 H110 a8 8 0 0 0 8 -8 V98"/>
+            </g>
+            <g stroke="#ffb084" stroke-width="9" stroke-linecap="round" fill="none">
+              <path d="M42 28 H36 a8 8 0 0 0 -8 8 V42"/>
+              <path d="M86 28 H92 a8 8 0 0 1 8 8 V42"/>
+              <path d="M42 100 H36 a8 8 0 0 1 -8 -8 V86"/>
+              <path d="M86 100 H92 a8 8 0 0 0 8 -8 V86"/>
+            </g>
+            <rect x="36" y="45" width="56" height="38" rx="12" fill="#ff4d8b"/>
+            <rect x="48" y="54" width="32" height="20" rx="7" fill="#fffaf0"/>
+            <rect x="58" y="60" width="12" height="8" rx="3.5" fill="#ff4d8b"/>
+          </svg>
+          <span class="brand-name">Zoom Out</span>
+        </div>
+      </header>
+
+      <!-- Center Branding Outro -->
+      <div class="outro-center">
+        <span class="outro-kicker">Ready when the lights go down</span>
+        
+        <!-- Large Inline Logo -->
+        <svg class="outro-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Zoom Out logo">
+          <g stroke="#b8a4ed" stroke-width="9" stroke-linecap="round" fill="none">
+            <path d="M30 10 H18 a8 8 0 0 0 -8 8 V30"/>
+            <path d="M98 10 H110 a8 8 0 0 1 8 8 V30"/>
+            <path d="M30 118 H18 a8 8 0 0 1 -8 -8 V98"/>
+            <path d="M98 118 H110 a8 8 0 0 0 8 -8 V98"/>
+          </g>
+          <g stroke="#ffb084" stroke-width="9" stroke-linecap="round" fill="none">
+            <path d="M42 28 H36 a8 8 0 0 0 -8 8 V42"/>
+            <path d="M86 28 H92 a8 8 0 0 1 8 8 V42"/>
+            <path d="M42 100 H36 a8 8 0 0 1 -8 -8 V86"/>
+            <path d="M86 100 H92 a8 8 0 0 0 8 -8 V86"/>
+          </g>
+          <rect x="36" y="45" width="56" height="38" rx="12" fill="#ff4d8b"/>
+          <rect x="48" y="54" width="32" height="20" rx="7" fill="#fffaf0"/>
+          <rect x="58" y="60" width="12" height="8" rx="3.5" fill="#ff4d8b"/>
+        </svg>
+        
+        <h2 class="outro-title">Ready<br>when the lights go down</h2>
+        <p class="outro-subtitle">Free forever. Open source. Yours alone.</p>
+      </div>
+
+      <!-- Overlapping curved signature hills -->
+      <div class="footer-horizon" aria-hidden="true">
+        <svg viewBox="0 0 1440 160" preserveAspectRatio="xMidYMax slice">
+          <path d="M-40 160 Q180 20 400 160 Z" fill="#b8a4ed" stroke="#b8a4ed" stroke-width="24" stroke-linejoin="round"/>
+          <path d="M260 160 Q520 -10 800 160 Z" fill="#ffb084" stroke="#ffb084" stroke-width="24" stroke-linejoin="round"/>
+          <path d="M660 160 Q880 40 1100 160 Z" fill="#e8b94a" stroke="#e8b94a" stroke-width="24" stroke-linejoin="round"/>
+          <path d="M960 160 Q1220 10 1480 160 Z" fill="#a4d4c5" stroke="#a4d4c5" stroke-width="24" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <!-- Footer Row -->
+      <footer class="post-footer">
+        <div class="footer-left">
+          <span>MIT License</span>
+          <i>·</i>
+          <span>Open Source</span>
+        </div>
+        <div class="footer-right">
+          github.com/Ns81000/imdb-list-injector
+        </div>
+      </footer>
+
+    </div>
+  </div>
+
+  <script>
+    // Capture and download PNG flow
+    document.getElementById('capture-btn').addEventListener('click', () => {
+      const container = document.getElementById('post-container');
+      const btn = document.getElementById('capture-btn');
+      
+      btn.disabled = true;
+      btn.innerText = 'Generating image...';
+
+      html2canvas(container, {
+        width: 1080,
+        height: 1350,
+        scale: 2, // Double-scale to export at high resolution (2160x2700) for sharp text
+        useCORS: true,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 1080,
+        windowHeight: 1350
+      }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'zoom-out-linkedin-every-list.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+          Export as Image (PNG)
+        `;
+      }).catch(err => {
+        console.error('Capture failed:', err);
+        alert('Failed to generate image. Please check dev console.');
+        btn.disabled = false;
+        btn.innerText = 'Export as Image (PNG)';
+      });
+    });
+  </script>
+</body>
+</html>
