@@ -1004,6 +1004,7 @@ h4 { font-weight: 600; font-size: 16px; line-height: 1.4; }
   place-items: center;
   padding: var(--sp-lg);
   background: var(--canvas);
+  overflow-y: auto;
 }
 body.mobile-locked { overflow: hidden; }
 body.mobile-locked .mobile-overlay { display: grid; }
@@ -1019,11 +1020,36 @@ body.mobile-locked .mobile-overlay { display: grid; }
   border: 1px solid var(--hairline);
   border-radius: var(--r-xl);
   padding: var(--sp-xl);
+  width: 100%;
   max-width: 420px;
+  box-sizing: border-box;
   text-align: center;
   opacity: 0;
   transform: scale(.96);
   transition: opacity .4s ease, transform .4s ease;
+}
+
+@media (max-width: 480px) {
+  .mobile-overlay {
+    padding: var(--sp-md);
+  }
+  .mobile-overlay-card {
+    padding: var(--sp-lg) var(--sp-md);
+    border-radius: var(--r-lg);
+  }
+  .mobile-overlay-title {
+    font-size: 22px;
+  }
+  .mobile-overlay-text {
+    font-size: 14px;
+    margin-bottom: var(--sp-md);
+  }
+  .desktop-badge {
+    font-size: 12px;
+    padding: 6px 12px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
 }
 body.mobile-overlay-visible .mobile-overlay-card {
   opacity: 1;
