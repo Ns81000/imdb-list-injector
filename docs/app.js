@@ -213,6 +213,7 @@
   const applyMobileLock = () => {
     const isMobile = window.innerWidth <= 800;
     document.body.classList.toggle("mobile-locked", isMobile);
+    document.documentElement.classList.toggle("mobile-locked", isMobile);
     if (isMobile) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
