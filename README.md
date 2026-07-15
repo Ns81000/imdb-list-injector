@@ -1,197 +1,148 @@
-# Zoom Out
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="Zoom Out Logo" width="128" height="128" />
+</p>
 
-> **Every list deserves the big screen.**
+<h1 align="center">Zoom Out</h1>
 
-![Version](https://img.shields.io/badge/version-1.4.0-blue.svg?style=flat-square)
-![Manifest](https://img.shields.io/badge/manifest-v3-green.svg?style=flat-square)
-![Browser](https://img.shields.io/badge/browser-chrome-yellow.svg?style=flat-square)
+<p align="center">
+  <strong>Every list deserves the big screen.</strong>
+</p>
 
-**Zoom Out** (formerly *IMDB List Injector*) is a Chrome extension that parses any public IMDB list into
-clean, structured data you can **copy or download** in seconds — ready for an AI
-chat, a spreadsheet, or a document — and then **project that same list as a
-full-screen cinematic experience** with posters and backdrops pulled live from
-TMDB.
+<p align="center">
+  <a href="https://github.com/Ns81000/imdb-list-injector/releases"><img src="https://img.shields.io/badge/version-1.4.0-ff4d8b?style=flat-square" alt="Version"></a>
+  <img src="https://img.shields.io/badge/manifest-v3-b8a4ed?style=flat-square" alt="Manifest v3">
+  <img src="https://img.shields.io/badge/browser-chrome-ffb084?style=flat-square" alt="Chrome">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-a4d4c5?style=flat-square" alt="MIT License"></a>
+</p>
 
-**🌐 Landing page:** [ns81000.github.io/imdb-list-injector](https://ns81000.github.io/imdb-list-injector/)
-
-Everything runs and is stored locally in your browser.
-
----
-
-## Features
-
-### Lists & export
-- **Detailed metadata extraction** — title, year, IMDB rating, vote count,
-  genre, content rating, duration, and plot description for every title.
-- **Multiple export formats** — copy or download any list as **CSV, JSON, Plain
-  Text, or Markdown Table**.
-- **Full-list pagination** — automatically fetches every page of large lists,
-  not just the first 250 items.
-- **Local library** — save lists, refresh them on demand, and back up or restore
-  your whole library as JSON. Refresh also picks up a renamed list, and restoring
-  a backup asks for confirmation before it replaces an existing library.
-- **Forgiving URLs** — `http://`, `m.imdb.com`, and bare `imdb.com/list/ls…`
-  links are all normalized to the canonical `https://www.imdb.com` before
-  fetching, so a pasted link doesn't fail on a technicality.
-- **Private by design** — list data is stored locally and the parser only ever
-  talks to `www.imdb.com`.
-
-### Immersive mode
-- **Full-screen cinema player** — turn any saved list (or your whole library)
-  into a backdrop-driven slideshow with poster, title, year, runtime, rating,
-  overview, and genres.
-- **Dynamic, per-list filters** — Sort by, Type, Genre, and Runtime pills are
-  built from the actual data in the list. Options that aren't present never
-  appear; runtime ranges are computed from the list's own spread (so a
-  short-runtime TV list gets sensible buckets instead of movie-length ones).
-- **Sort + direction** — sort by List order, Alphabetical, IMDb rating, Number
-  of ratings, Release date, or Runtime, each with a **Largest first / Smallest
-  first** toggle.
-- **Streaming playback** — the player opens as soon as the first image resolves
-  and keeps fetching the rest in the background, so you're never waiting on the
-  whole list.
-- **Complete-first ordering** — titles with a backdrop are shown first; titles
-  missing an image are moved to the end and rendered with a clean placeholder.
-- **Robust preloading** — the backdrop *and* poster for upcoming titles (ahead,
-  behind, and the next shuffled items) are fetched and decoded in advance, so
-  navigation is instant.
-- **Auto slideshow** — shuffles through the whole list (covering every title
-  once before repeating) at your chosen interval: **5s / 10s / 25s / 50s**.
-- **Clips (`G`)** — press **G** (or the **Clips** button) on any title to open a
-  full-screen slideshow of *that title's own* high-resolution TMDB backdrops,
-  auto-advancing every 4s and looping until you close it. Images are prefetched
-  so it opens instantly, the one already showing behind the info panel is never
-  repeated, and titles with fewer than two extra backdrops show a clean "no
-  clips" message instead of an empty reel.
-- **In-player filter panel** — a translucent side sheet lets you re-filter or
-  re-sort live without leaving the player; changes apply immediately, a live
-  match count shows how many titles qualify, and auto-advance pauses cleanly if
-  a filter matches nothing (resuming when it matches again).
-- **Never a black frame** — if a backdrop or poster fails to load, the player
-  falls back to a clean title placeholder instead of a black screen; if TMDB
-  rejects your key (401/403), you get a clear message rather than a silent
-  image-less slideshow.
-- **Keyboard controls** — `←/→` navigate, `Space` toggles the slideshow, `G`
-  opens the per-title clips slideshow, `F` toggles fullscreen, `Esc` closes an
-  open panel or exits.
-- **Respects `prefers-reduced-motion`** and works on desktop and mobile widths.
-
-### Security & privacy
-- **Bring your own TMDB key** — Immersive mode uses your own free TMDB API key.
-- **Encrypted at rest** — your key is encrypted with a passphrase using
-  **AES-256-GCM** with a key derived via **PBKDF2-SHA256 (310,000 iterations,
-  per-record random salt)** (Web Crypto). Only the ciphertext, salt, and IV are
-  stored; the plaintext key and passphrase are never persisted.
-- **Unlock once per session** — after you enter your passphrase, the decrypted
-  key is held in memory (`chrome.storage.session`) for the browser session and
-  cleared when the browser closes.
+<p align="center">
+  <a href="https://ns81000.github.io/imdb-list-injector/"><strong>🌐 Live Landing Page</strong></a> ·
+  <a href="https://github.com/Ns81000/imdb-list-injector"><strong>💻 View Source</strong></a>
+</p>
 
 ---
 
-## Export formats
+**Zoom Out** (formerly *IMDB List Injector*) is a lightweight Chrome extension that parses any public IMDb list into clean, structured data you can **copy or download** in seconds — ready for an AI chat, a spreadsheet, or a document. It then steps back and lets you **project that same list as a full-screen, backdrop-driven cinematic slideshow** with posters and high-resolution backdrops pulled live from TMDB.
 
-- **CSV** — spreadsheet-friendly, with CSV-injection guarding.
-- **JSON** — structured, with a stable field schema.
-- **Plain Text** — readable summary per title.
-- **Markdown Table** — paste-ready for docs and AI chats.
-
-Set your preferred format under **Settings** (the gear icon). It's used for both
-the **Copy** and **Download** actions.
+Everything runs locally in your browser to respect your security and privacy.
 
 ---
 
-## Installation
+## ✨ Features
 
-1. Clone or download this repository:
+### 📋 Lists & Export
+* **Detailed Metadata Extraction** — Captures title, year, IMDb rating, vote count, genre, content rating, duration, and plot description for every list item.
+* **Multiple Export Formats** — Copy or download lists in a single click as **CSV, JSON, Plain Text, or Markdown Table**.
+* **Full-List Pagination** — Automatically scrolls and fetches every page of large lists (not just the first 250 items).
+* **Local Library Manager** — Save lists, refresh them on demand, and back up or restore your entire library as JSON.
+* **Forgiving URL Normalization** — Automatically resolves standard, mobile (`m.imdb.com`), and bare URLs to standard canonical formats before fetching.
+* **Private by Design** — All list metadata is stored locally. The parser only communicates directly with IMDb.
+
+### 🎭 Immersive Mode
+* **Full-Screen Cinema Player** — Turn any saved list or your entire library into an elegant, responsive cinematic slideshow.
+* **Dynamic, Content-Aware Filters** — Sort by, Type, Genre, and Runtime pills are constructed dynamically from the actual data in your list.
+* **Custom Sorting Options** — Sort by list order, alphabetical, IMDb rating, rating counts, release date, or runtime with a **Largest first / Smallest first** direction toggle.
+* **Background Preloading & Streaming** — Immersive mode launches as soon as the first image resolves and keeps preloading posters/backdrops for future slides in the background.
+* **Auto-Slideshow** — Automatically advance slides at a configurable interval: **5s / 10s / 25s / 50s**.
+* **Hi-Res Backdrop Reels (Clips)** — Press **G** (or click the **Clips** button) to open an automated slideshow of the current title's alternative high-resolution backdrops.
+* **In-Player Filter Sheet** — Re-filter, shuffle, or re-sort live with a translucent overlay side panel without leaving the player.
+* **Keyboard Navigation** — `←/→` to navigate, `Space` to toggle autoplay, `G` for clips, `F` for fullscreen, and `Esc` to close overlays.
+* **Accessibility Minded** — Full support for `prefers-reduced-motion` animations and responsive mobile/tablet scales.
+
+### 🔒 Security & Privacy
+* **Bring Your Own TMDB Key** — Utilizes your own free API key for backdrop assets.
+* **Encrypted at Rest** — Your TMDB API key is encrypted using **AES-256-GCM** with a key derived via **PBKDF2-SHA256 (310,000 iterations and a random salt)**.
+* **Unlock Once Per Session** — Decrypted keys live in memory (`chrome.storage.session`) for the browser session and are cleared when Chrome is closed.
+
+---
+
+## 📤 Export Formats
+
+* **CSV** — Spreadsheet-friendly layout featuring built-in CSV-injection protection.
+* **JSON** — Fully structured objects adhering to a stable database schema.
+* **Plain Text** — Clean, human-readable bullet points.
+* **Markdown Table** — Ready-to-paste tables optimized for documentation and LLMs.
+
+Choose your preferred default format under **Settings** (the gear icon) to customize both the **Copy** and **Download** button triggers.
+
+---
+
+## ⚙️ Installation
+
+1. **Clone or download** this repository to your computer:
    ```bash
    git clone https://github.com/Ns81000/imdb-list-injector.git
    ```
 2. Open Google Chrome and navigate to `chrome://extensions/`.
-3. Enable **Developer mode** (top-right).
-4. Click **Load unpacked** and select the repository folder.
+3. Toggle on **Developer mode** (top-right corner).
+4. Click **Load unpacked** (top-left) and select the repository's root folder.
 
-After pulling changes, click the **refresh** icon on the extension card in
-`chrome://extensions/` to reload it.
+*To pull updates later: do a `git pull` and click the ↻ (refresh) icon on the **Zoom Out** extension card.*
 
 ---
 
-## Usage
+## 🚀 Usage
 
 ### Saving and exporting a list
-1. Open **Zoom Out** from your toolbar or the side panel.
-2. Click **Add List**, paste a public IMDB list URL
-   (`https://www.imdb.com/list/ls...`), and fetch it.
-3. The list is saved to your library.
-4. Use **Copy** or **Download** on any list card to export it in your chosen
-   format. Use **Refresh** to re-fetch, or the **✕** to delete.
-5. **Export Backup / Import Backup** (footer) save or restore your entire
-   library as a single JSON file.
+1. Launch **Zoom Out** from your extension toolbar or Chrome's Side Panel.
+2. Click **Add List**, paste a public IMDb list URL, and hit **Fetch**.
+3. The list will load and persist in your library.
+4. Click **Copy** or **Download** on any list card to export.
+5. Use the footer actions to **Export Backup** or **Import Backup** your entire saved database.
 
 ### Setting up Immersive mode
-1. Get a free API key from
-   [TMDB → Settings → API](https://www.themoviedb.org/settings/api) (a v3 key or
-   a v4 read token both work).
+1. Generate a free API key from [TMDB Settings → API](https://www.themoviedb.org/settings/api) (v3 key or v4 read token).
 2. Open **Settings** (gear icon) → **TMDB API Key**.
-3. Paste your key, choose a **passphrase**, and click **Save key**. The key is
-   verified against TMDB, then encrypted and stored locally.
+3. Paste the key, choose a local **passphrase**, and save. The key is validated against TMDB, then encrypted and saved.
 
-### Starting Immersive mode
-- Click the **Immersive** button on any list card to project that list, or the
-  **Immersive** icon in the header to project your whole library.
-- Enter your passphrase once (first launch of the session) to unlock the key.
-- Pick your Sort / Type / Genre / Runtime filters, then press **Start**.
-- Inside the player: use the on-screen controls or keyboard, open **Slideshow**
-  to auto-advance, press **G** (or the **Clips** button) for a full-screen
-  slideshow of the current title's backdrops, or the **filter** icon to
-  re-filter live.
+### Launching the slideshow
+* Click **Immersive** on a list card to project that list, or the **Immersive** icon in the header to project your whole library.
+* Enter your passphrase to decrypt the API key for the current browser session.
+* Configure filters or sorting on the lobby screen, then press **Start**.
 
 ---
 
-## Permissions
+## 🔍 Permissions & Security
 
 | Permission | Why |
 | --- | --- |
-| `storage`, `unlimitedStorage` | Save lists, preferences, the encrypted key, and the TMDB image cache locally. |
-| `downloads` | Save exported files and library backups. |
-| `clipboardWrite` | Copy formatted lists to the clipboard. |
-| `sidePanel` | Run the extension in Chrome's side panel. |
-| `host_permissions: www.imdb.com` | Fetch and parse public IMDB lists. |
+| `storage` & `unlimitedStorage` | To store your library, theme settings, encrypted API credentials, and image caches locally. |
+| `downloads` | To download structured backup logs and exported data files directly. |
+| `clipboardWrite` | To copy formatted markdown tables or text to your clipboard. |
+| `sidePanel` | To run the extension UI inside Chrome's native side panel. |
+| `host_permissions: www.imdb.com` | To directly fetch and parse public IMDb lists. |
 
-**Network access** is limited by the Content Security Policy to:
-`www.imdb.com` (list parsing), `api.themoviedb.org` (image lookup), and
-`image.tmdb.org` (poster/backdrop images).
+**Network security** is restricted by a strict Content Security Policy to:
+* `www.imdb.com` (Fetching lists)
+* `api.themoviedb.org` (Resolving metadata and imagery)
+* `image.tmdb.org` (Retrieving poster and backdrop pictures)
 
 ---
 
-## Project structure
+## 📂 Project Structure
 
 ```
-manifest.json            MV3 manifest, permissions, and CSP
+manifest.json            MV3 configurations, permissions, and Content Security Policy
 src/
-  background.js          Service worker: fetch/parse/save/refresh lists
-  parser.js              IMDB list parser (JSON-LD + __NEXT_DATA__ strategies)
-  popup/                 Side-panel UI: library, add/refresh, export, settings
+  background.js          Background service worker: handles fetching, parsing, and sync
+  parser.js              Implements parsing logic (JSON-LD + __NEXT_DATA__ fallbacks)
+  popup/                 Side-panel extension UI, settings, and library management
     popup.html
     popup.css
     popup.js
-  immersive/             Full-screen cinema player
+  immersive/             Slideshow player code (interactive backdrop theater)
     immersive.html
     immersive.css
     immersive.js
   lib/
-    crypto.js            AES-GCM + PBKDF2 key encryption (Web Crypto)
-    tmdb.js              TMDB client, image URLs, and cached lookups
+    crypto.js            AES-GCM + PBKDF2 cryptography layer (Web Crypto API)
+    tmdb.js              TMDB API handler, caching utility, and image resolver
 ```
 
 ---
 
-## Privacy
+## 🛡️ Privacy Policy
 
-- List data and preferences are stored in `chrome.storage.local`.
-- Your TMDB key is stored **encrypted** (AES-GCM); the passphrase is never
-  stored. The decrypted key lives only in `chrome.storage.session` for the
-  active browser session.
-- Resolved TMDB image data is cached locally (30-day TTL) to avoid repeat API
-  calls; posters and backdrops are loaded directly from TMDB's image CDN.
-- No analytics, no third-party servers — the extension talks only to IMDB and
-  TMDB.
+* **100% Local Processing** — All saved lists and options live in your browser (`chrome.storage.local`).
+* **Zero Third-Party Servers** — The extension communicates only with official IMDb and TMDB end-points. There are no tracking scripts, analytics, or intermediate servers.
+* **Robust Encryption** — Credentials are never stored as plain text. The encryption key is derived dynamically in memory.
