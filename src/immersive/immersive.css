@@ -731,3 +731,21 @@ html, body {
   .shimmer { animation-duration: 1.4s; }
   .popover, .filter-overlay, .filter-sheet { transition: none; transform: none; }
 }
+
+/* --- Dynamic "Show more" pill button styling --- */
+.show-more-pill {
+  border-style: dashed !important;
+  border-color: rgba(255, 77, 139, 0.4) !important;
+  background: rgba(255, 77, 139, 0.05) !important;
+  color: var(--brand-pink) !important;
+  font-weight: 600 !important;
+  transition: all 0.15s var(--ease) !important;
+}
+
+.show-more-pill:hover {
+  border-style: solid !important;
+  border-color: var(--brand-pink) !important;
+  background: var(--brand-pink) !important;
+  color: #ffffff !important;
+}
+

@@ -388,8 +388,7 @@
     // Keywords — every distinct keyword present, sorted by count descending.
     const keywordsGroup = el('keywords-group');
     const keywordsContainer = el('keywords');
-    const keywordsMoreBtn = el('keywords-more');
-    if (keywordsGroup && keywordsContainer && keywordsMoreBtn) {
+    if (keywordsGroup && keywordsContainer) {
       const allKeywords = state.source.flatMap((m) => m.keywords || []);
       const keywordEntries = facetEntries(buildFacet(allKeywords, 'Unknown keyword'));
       pruneSelection(state.config.keywords, keywordEntries);
@@ -406,14 +405,16 @@
         });
 
         if (keywordEntries.length > state.shownKeywordsLimit) {
-          keywordsMoreBtn.style.display = 'inline-flex';
-          keywordsMoreBtn.textContent = `Show more keywords (${keywordEntries.length - state.shownKeywordsLimit} left)`;
-          keywordsMoreBtn.onclick = () => {
+          const moreBtn = document.createElement('button');
+          moreBtn.type = 'button';
+          moreBtn.className = 'pill show-more-pill';
+          moreBtn.textContent = `+ Show more (${keywordEntries.length - state.shownKeywordsLimit} left)`;
+          moreBtn.onclick = (e) => {
+            e.preventDefault();
             state.shownKeywordsLimit += 30;
             buildFilterUI(prefix, onChange);
           };
-        } else {
-          keywordsMoreBtn.style.display = 'none';
+          keywordsContainer.appendChild(moreBtn);
         }
       }
     }
