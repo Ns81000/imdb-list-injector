@@ -36,7 +36,8 @@
     authFailures: 0,   // count of TMDB 401/403 responses this run
     resolvedOk: 0,     // count of successful TMDB responses (image or not)
     authNotified: false,
-    config: { sort: 'position', sortDir: 'desc', types: new Set(), genres: new Set(), runtime: null },
+    shownKeywordsLimit: 30,
+    config: { sort: 'position', sortDir: 'desc', types: new Set(), genres: new Set(), keywords: new Set(), runtime: null },
     // Per-title backdrop "clips" slideshow (G).
     clipsCache: new Map(), // imdbId -> { status:'loading'|'ready'|'ineligible'|'error', images:[{path,url}] }
     clips: { active: false, images: [], index: 0, timer: null, forId: null }
@@ -321,6 +322,7 @@
   ];
 
   function openConfig() {
+    state.shownKeywordsLimit = 30;
     $('#config-eyebrow').textContent = SCOPE === 'all' ? 'Immersive · All lists' : 'Immersive';
     $('#config-title').textContent = state.listName;
     $('#config-count').textContent = `${state.source.length} title${state.source.length === 1 ? '' : 's'}`;
@@ -381,6 +383,39 @@
         selected: () => state.config.genres,
         onToggle: (v) => { toggleSet(state.config.genres, v); syncPills(); onChange(); }
       });
+    }
+
+    // Keywords — every distinct keyword present, sorted by count descending.
+    const keywordsGroup = el('keywords-group');
+    const keywordsContainer = el('keywords');
+    const keywordsMoreBtn = el('keywords-more');
+    if (keywordsGroup && keywordsContainer && keywordsMoreBtn) {
+      const allKeywords = state.source.flatMap((m) => m.keywords || []);
+      const keywordEntries = facetEntries(buildFacet(allKeywords, 'Unknown keyword'));
+      pruneSelection(state.config.keywords, keywordEntries);
+
+      if (keywordEntries.length === 0) {
+        keywordsGroup.classList.add('hidden');
+      } else {
+        keywordsGroup.classList.remove('hidden');
+        const visibleKeywords = keywordEntries.slice(0, state.shownKeywordsLimit);
+
+        renderPills(keywordsContainer, visibleKeywords, {
+          selected: () => state.config.keywords,
+          onToggle: (v) => { toggleSet(state.config.keywords, v); syncPills(); onChange(); }
+        });
+
+        if (keywordEntries.length > state.shownKeywordsLimit) {
+          keywordsMoreBtn.style.display = 'inline-flex';
+          keywordsMoreBtn.textContent = `Show more keywords (${keywordEntries.length - state.shownKeywordsLimit} left)`;
+          keywordsMoreBtn.onclick = () => {
+            state.shownKeywordsLimit += 30;
+            buildFilterUI(prefix, onChange);
+          };
+        } else {
+          keywordsMoreBtn.style.display = 'none';
+        }
+      }
     }
 
     // Runtime — dynamic buckets from this list's spread.
@@ -469,6 +504,10 @@
       if (c.genres.size) {
         const gs = splitGenres(m.genre).map(facetKey);
         if (!gs.some((g) => c.genres.has(g))) return false;
+      }
+      if (c.keywords && c.keywords.size) {
+        const ks = (m.keywords || []).map(facetKey);
+        if (!ks.some((k) => c.keywords.has(k))) return false;
       }
       if (c.runtime) {
         const b = state.runtimeBuckets.find((x) => x.key === c.runtime);

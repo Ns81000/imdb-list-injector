@@ -75,6 +75,7 @@
             <div class="list-card-actions-left">
               <button class="list-action-btn copy-btn" data-idx="${idx}" title="Copy formatted list">Copy</button>
               <button class="list-action-btn download-btn" data-idx="${idx}" title="Download formatted list">Download</button>
+              <button class="list-action-btn keywords-btn" data-id="${escapeHtml(list.id)}" data-idx="${idx}" title="Fetch keywords">Keywords</button>
             </div>
             <button class="list-action-btn immersive-btn" data-id="${escapeHtml(list.id)}" title="Immersive mode">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -83,6 +84,19 @@
               </svg>
               Immersive
             </button>
+          </div>
+          <div class="keyword-progress-container hidden" id="kw-progress-${escapeHtml(list.id)}">
+            <div class="keyword-progress-header">
+              <span class="keyword-progress-status" id="kw-status-${escapeHtml(list.id)}">Preparing...</span>
+              <span class="keyword-progress-count" id="kw-count-${escapeHtml(list.id)}">0/0</span>
+            </div>
+            <div class="keyword-progress-bar-bg">
+              <div class="keyword-progress-bar" id="kw-bar-${escapeHtml(list.id)}" style="width: 0%;"></div>
+            </div>
+            <div class="keyword-progress-actions" id="kw-actions-${escapeHtml(list.id)}" style="margin-top: 4px; display: flex; gap: 8px;">
+              <button class="kw-action-link cancel" data-id="${escapeHtml(list.id)}">Cancel</button>
+              <button class="kw-action-link resume hidden" data-id="${escapeHtml(list.id)}">Resume</button>
+            </div>
           </div>
         </div>
       `).join('');
@@ -137,6 +151,36 @@
 
       container.querySelectorAll('.immersive-btn').forEach(btn => {
         btn.addEventListener('click', () => openImmersive('list', btn.dataset.id));
+      });
+
+      container.querySelectorAll('.keywords-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.dataset.idx);
+          const list = lists[idx];
+          if (!list) return;
+          handleKeywordsFetchClick(list);
+        });
+      });
+
+      container.querySelectorAll('.kw-action-link.cancel').forEach(btn => {
+        btn.addEventListener('click', () => {
+          chrome.runtime.sendMessage({ type: 'CANCEL_KEYWORD_FETCH', listId: btn.dataset.id });
+        });
+      });
+
+      container.querySelectorAll('.kw-action-link.resume').forEach(btn => {
+        btn.addEventListener('click', () => {
+          chrome.runtime.sendMessage({ type: 'START_KEYWORD_FETCH', listId: btn.dataset.id, force: false });
+        });
+      });
+
+      // Restore active keyword fetch status on render
+      lists.forEach(list => {
+        chrome.runtime.sendMessage({ type: 'GET_KEYWORD_FETCH_STATUS', listId: list.id }, (response) => {
+          if (response && response.status && response.status !== 'idle') {
+            showKeywordProgress(list.id, response.status, response.fetchedCount, response.totalCount, response.errorMsg, response.lastFetchedTitle);
+          }
+        });
       });
     });
   }
@@ -779,6 +823,9 @@
     } else {
       desc = '';
     }
+    const keywords = Array.isArray(m.keywords)
+      ? m.keywords.map(k => str(k, 100).trim()).filter(Boolean)
+      : [];
     return {
       position:       str(m.position, 12),
       imdb_id:        str(m.imdb_id, 20),
@@ -791,7 +838,8 @@
       content_rating: str(m.content_rating, 40),
       duration:       str(m.duration, 40),
       description:    desc,
-      imdb_url:       str(m.imdb_url, 500)
+      imdb_url:       str(m.imdb_url, 500),
+      keywords:       keywords
     };
   }
 
@@ -1015,6 +1063,94 @@
       }
     });
   }
+
+  // --- Keywords Fetch Controller ---
+  const _hideTimers = new Map();
+
+  function handleKeywordsFetchClick(list) {
+    const missing = list.movies.filter(m => !m.keywords || !Array.isArray(m.keywords)).length;
+    const force = missing === 0;
+    if (force && !confirm('All keywords are already fetched for this list. Refetch keywords for all titles?')) {
+      return;
+    }
+    // Show immediate optimistic feedback
+    showKeywordProgress(list.id, 'running', 0, force ? list.movies.length : missing, '', 'Starting...');
+    chrome.runtime.sendMessage({ type: 'START_KEYWORD_FETCH', listId: list.id, force }, (response) => {
+      // Update with authoritative count from background (unwrap nested status)
+      if (response && response.success && response.status) {
+        const s = response.status;
+        showKeywordProgress(list.id, 'running', s.fetchedCount || 0, s.totalCount || 0, '', 'Starting...');
+      }
+    });
+  }
+
+  function showKeywordProgress(listId, status, fetchedCount, totalCount, errorMsg, lastFetchedTitle) {
+    const container = $(`#kw-progress-${listId}`);
+    const statusText = $(`#kw-status-${listId}`);
+    const countText = $(`#kw-count-${listId}`);
+    const bar = $(`#kw-bar-${listId}`);
+    const cancelBtn = container ? container.querySelector('.kw-action-link.cancel') : null;
+    const resumeBtn = container ? container.querySelector('.kw-action-link.resume') : null;
+
+    if (!container || !statusText || !countText || !bar) return;
+
+    if (_hideTimers.has(listId)) {
+      clearTimeout(_hideTimers.get(listId));
+      _hideTimers.delete(listId);
+    }
+
+    container.classList.remove('hidden');
+    statusText.style.color = '';
+
+    const pct = totalCount > 0 ? Math.round((fetchedCount / totalCount) * 100) : 0;
+    bar.style.width = `${pct}%`;
+    countText.textContent = `${fetchedCount}/${totalCount}`;
+
+    if (status === 'running') {
+      statusText.textContent = lastFetchedTitle ? `Scraping: "${lastFetchedTitle}"` : 'Scraping keywords...';
+      if (cancelBtn) cancelBtn.classList.remove('hidden');
+      if (resumeBtn) resumeBtn.classList.add('hidden');
+    } else if (status === 'complete') {
+      statusText.textContent = 'Keywords successfully saved!';
+      if (cancelBtn) cancelBtn.classList.add('hidden');
+      if (resumeBtn) resumeBtn.classList.add('hidden');
+
+      const timer = setTimeout(() => {
+        container.classList.add('hidden');
+        renderLists();
+      }, 3000);
+      _hideTimers.set(listId, timer);
+    } else if (status === 'error') {
+      statusText.textContent = errorMsg || 'Error fetching keywords.';
+      statusText.style.color = 'var(--error)';
+      if (cancelBtn) cancelBtn.classList.remove('hidden');
+      if (resumeBtn) resumeBtn.classList.remove('hidden');
+    } else if (status === 'cancelled') {
+      statusText.textContent = 'Cancelled.';
+      if (cancelBtn) cancelBtn.classList.add('hidden');
+      if (resumeBtn) resumeBtn.classList.add('hidden');
+
+      const timer = setTimeout(() => {
+        container.classList.add('hidden');
+        renderLists();
+      }, 2000);
+      _hideTimers.set(listId, timer);
+    }
+  }
+
+  // Listen for progress updates from the background worker
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'KEYWORD_FETCH_PROGRESS') {
+      showKeywordProgress(
+        message.listId,
+        message.status,
+        message.fetchedCount,
+        message.totalCount,
+        message.errorMsg,
+        message.lastFetchedTitle
+      );
+    }
+  });
 
   // --- Init ---
 

@@ -70,6 +70,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
+
+  if (message.type === 'START_KEYWORD_FETCH') {
+    startKeywordFetch(message.listId, message.force)
+      .then(status => sendResponse({ success: true, status }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.type === 'CANCEL_KEYWORD_FETCH') {
+    cancelKeywordFetch(message.listId);
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === 'GET_KEYWORD_FETCH_STATUS') {
+    const status = getKeywordFetchStatus(message.listId);
+    sendResponse({ success: true, ...status });
+    return true;
+  }
 });
 
 async function fetchAndParseList(url, attempt = 1) {
@@ -234,6 +253,7 @@ async function saveList(listData) {
 }
 
 async function deleteList(listId) {
+  cancelKeywordFetch(listId);
   return withStorageLock(async () => {
     const stored = await getStoredLists();
     const updated = stored.filter(l => l.id !== listId);
@@ -242,12 +262,28 @@ async function deleteList(listId) {
 }
 
 async function refreshList(listId, url) {
+  cancelKeywordFetch(listId);
   // Network fetch runs concurrently — only the storage write step is locked.
   const result = await fetchAndParseList(url);
   await withStorageLock(async () => {
     const stored = await getStoredLists();
     const idx = stored.findIndex(l => l.id === listId);
     if (idx >= 0) {
+      // Map old keywords by imdb_id
+      const oldKeywordsMap = new Map();
+      if (Array.isArray(stored[idx].movies)) {
+        for (const m of stored[idx].movies) {
+          if (m && m.imdb_id && Array.isArray(m.keywords)) {
+            oldKeywordsMap.set(m.imdb_id, m.keywords);
+          }
+        }
+      }
+      // Merge keywords into new movies list
+      for (const m of result.movies) {
+        if (m && m.imdb_id && oldKeywordsMap.has(m.imdb_id)) {
+          m.keywords = oldKeywordsMap.get(m.imdb_id);
+        }
+      }
       stored[idx].movies = result.movies;
       stored[idx].lastRefreshed = new Date().toISOString();
       stored[idx].movieCount = result.movies.length;
@@ -270,4 +306,210 @@ function getStoredLists() {
       }
     });
   });
+}
+
+// --- Keywords Scraping Queue Manager ---
+const activeKeywordQueues = new Map();
+
+function getKeywordFetchStatus(listId) {
+  const queue = activeKeywordQueues.get(listId);
+  if (!queue) return { status: 'idle' };
+  return {
+    status: queue.status,
+    fetchedCount: queue.fetchedCount,
+    totalCount: queue.totalCount,
+    errorMsg: queue.errorMsg,
+    lastFetchedTitle: queue.lastFetchedTitle
+  };
+}
+
+function broadcastProgress(queue) {
+  chrome.runtime.sendMessage({
+    type: 'KEYWORD_FETCH_PROGRESS',
+    listId: queue.listId,
+    status: queue.status,
+    fetchedCount: queue.fetchedCount,
+    totalCount: queue.totalCount,
+    errorMsg: queue.errorMsg,
+    lastFetchedTitle: queue.lastFetchedTitle
+  }).catch(() => {
+    // Ignore error if popup is closed and no listener exists
+  });
+}
+
+async function saveBatchProgress(listId, batch) {
+  if (batch.length === 0) return;
+  const batchMap = new Map(batch.map(item => [item.imdb_id, item.keywords]));
+  await withStorageLock(async () => {
+    const stored = await getStoredLists();
+    const list = stored.find(l => l.id === listId);
+    if (list && Array.isArray(list.movies)) {
+      for (const m of list.movies) {
+        if (batchMap.has(m.imdb_id)) {
+          m.keywords = batchMap.get(m.imdb_id);
+        }
+      }
+      await chrome.storage.local.set({ imdb_lists: stored });
+    }
+  });
+}
+
+function cancelKeywordFetch(listId) {
+  const queue = activeKeywordQueues.get(listId);
+  if (queue) {
+    queue.status = 'cancelled';
+    queue.abortController.abort();
+    // Save any pending progress
+    saveBatchProgress(listId, queue.saveBuffer).catch(() => {});
+    broadcastProgress(queue);
+    activeKeywordQueues.delete(listId);
+  }
+}
+
+async function startKeywordFetch(listId, force = false) {
+  if (activeKeywordQueues.has(listId)) {
+    return getKeywordFetchStatus(listId);
+  }
+
+  const stored = await getStoredLists();
+  const list = stored.find(l => l.id === listId);
+  if (!list) {
+    throw new Error('List not found');
+  }
+
+  let moviesToFetch = [];
+  if (force) {
+    await withStorageLock(async () => {
+      const latestStored = await getStoredLists();
+      const latestList = latestStored.find(l => l.id === listId);
+      if (latestList && Array.isArray(latestList.movies)) {
+        for (const m of latestList.movies) {
+          delete m.keywords;
+        }
+        await chrome.storage.local.set({ imdb_lists: latestStored });
+      }
+    });
+    // Re-read after clearing to get the authoritative movie list
+    const freshStored = await getStoredLists();
+    const freshList = freshStored.find(l => l.id === listId);
+    moviesToFetch = (freshList && Array.isArray(freshList.movies)) ? [...freshList.movies] : [];
+  } else {
+    moviesToFetch = (Array.isArray(list.movies) ? list.movies : []).filter(
+      m => !m.keywords || !Array.isArray(m.keywords)
+    );
+  }
+
+  if (moviesToFetch.length === 0) {
+    return { status: 'complete', fetchedCount: 0, totalCount: 0 };
+  }
+
+  const abortController = new AbortController();
+  const queue = {
+    listId,
+    moviesToFetch: [...moviesToFetch],
+    fetchedCount: 0,
+    totalCount: moviesToFetch.length,
+    abortController,
+    status: 'running',
+    errorMsg: '',
+    lastFetchedTitle: '',
+    saveBuffer: []
+  };
+
+  activeKeywordQueues.set(listId, queue);
+
+  // Start processing loop asynchronously
+  (async () => {
+    try {
+      while (queue.status === 'running' && queue.moviesToFetch.length > 0) {
+        const movie = queue.moviesToFetch[0];
+        queue.lastFetchedTitle = movie.title || '';
+        broadcastProgress(queue);
+
+        let keywords = [];
+        try {
+          keywords = await fetchKeywordsForTitle(movie.imdb_id, queue.abortController.signal);
+        } catch (err) {
+          if (queue.abortController.signal.aborted) {
+            break;
+          }
+          queue.status = 'error';
+          queue.errorMsg = err.message || 'Error fetching keywords';
+          broadcastProgress(queue);
+          break;
+        }
+
+        movie.keywords = keywords;
+        queue.saveBuffer.push({ imdb_id: movie.imdb_id, keywords });
+        queue.moviesToFetch.shift();
+        queue.fetchedCount++;
+
+        // Periodic batch save
+        if (queue.saveBuffer.length >= 10 || queue.moviesToFetch.length === 0) {
+          await saveBatchProgress(listId, queue.saveBuffer);
+          queue.saveBuffer = [];
+        }
+
+        if (queue.moviesToFetch.length === 0) {
+          queue.status = 'complete';
+          broadcastProgress(queue);
+          activeKeywordQueues.delete(listId);
+          break;
+        }
+
+        // Delay between fetches: random between 800ms and 1500ms
+        const delay = 800 + Math.random() * 700;
+        await new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(resolve, delay);
+          queue.abortController.signal.addEventListener('abort', () => {
+            clearTimeout(timeoutId);
+            reject(new DOMException('Aborted', 'AbortError'));
+          }, { once: true });
+        }).catch(() => {});
+
+        if (queue.abortController.signal.aborted) {
+          break;
+        }
+      }
+    } catch (loopErr) {
+      queue.status = 'error';
+      queue.errorMsg = loopErr.message || 'Loop error';
+      broadcastProgress(queue);
+    }
+  })();
+
+  return {
+    status: queue.status,
+    fetchedCount: queue.fetchedCount,
+    totalCount: queue.totalCount
+  };
+}
+
+async function fetchKeywordsForTitle(imdbId, signal) {
+  const url = `https://www.imdb.com/title/${imdbId}/keywords/`;
+  const response = await fetch(url, {
+    signal,
+    credentials: 'include',
+    headers: {
+      'Accept': 'text/html,application/xhtml+xml',
+      'Accept-Language': 'en-US,en;q=0.9'
+    }
+  });
+
+  if (!response.ok) {
+    if (response.status === 403 || response.status === 429) {
+      throw new Error('IMDb verification check triggered. Open imdb.com in a new browser tab, verify you are not a robot, and try again.');
+    }
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const html = await response.text();
+  if (!html || html.length === 0) {
+    throw new Error('Empty response from IMDb');
+  }
+  if (isBotChallenge(html)) {
+    throw new Error('IMDb returned a bot-check page. Open imdb.com in a browser tab, verify you are not a robot, then try again.');
+  }
+
+  return parseIMDBKeywords(html);
 }

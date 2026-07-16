@@ -290,3 +290,48 @@ function parseIMDBList(html) {
 // Note: output formatting (CSV / JSON / plain text / Markdown) lives in
 // src/popup/popup.js, which is the only consumer. parser.js is loaded by the
 // service worker solely to expose parseIMDBList().
+
+function parseIMDBKeywords(html) {
+  if (!html || typeof html !== 'string' || html.length === 0) {
+    return [];
+  }
+
+  // Try extracting __NEXT_DATA__
+  const ndMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (ndMatch) {
+    try {
+      const nd = JSON.parse(ndMatch[1]);
+      const categories = nd?.props?.pageProps?.contentData?.categories || [];
+      const keywordsSet = new Set();
+
+      for (const cat of categories) {
+        const items = cat?.section?.items || [];
+        for (const item of items) {
+          if (item?.rowTitle) {
+            keywordsSet.add(item.rowTitle.trim().toLowerCase());
+          }
+        }
+      }
+
+      if (keywordsSet.size > 0) {
+        return Array.from(keywordsSet);
+      }
+    } catch (e) {
+      // Fallback
+    }
+  }
+
+  // Fallback: Regex extraction of keyword links
+  const keywordLinksRegex = /<a[^>]+class="[^"]*ipc-metadata-list-summary-item__t[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+  const keywordsSet = new Set();
+  let match;
+  while ((match = keywordLinksRegex.exec(html)) !== null) {
+    const text = match[1].replace(/<[^>]*>/g, '').trim().toLowerCase();
+    if (text) {
+      keywordsSet.add(text);
+    }
+  }
+
+  return Array.from(keywordsSet);
+}
+
