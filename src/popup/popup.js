@@ -91,9 +91,9 @@
               <span class="keyword-progress-count" id="kw-count-${escapeHtml(list.id)}">0/0</span>
             </div>
             <div class="keyword-progress-bar-bg">
-              <div class="keyword-progress-bar" id="kw-bar-${escapeHtml(list.id)}" style="width: 0%;"></div>
+              <div class="keyword-progress-bar" id="kw-bar-${escapeHtml(list.id)}"></div>
             </div>
-            <div class="keyword-progress-actions" id="kw-actions-${escapeHtml(list.id)}" style="margin-top: 4px; display: flex; gap: 8px;">
+            <div class="keyword-progress-actions" id="kw-actions-${escapeHtml(list.id)}">
               <button class="kw-action-link cancel" data-id="${escapeHtml(list.id)}">Cancel</button>
               <button class="kw-action-link resume hidden" data-id="${escapeHtml(list.id)}">Resume</button>
             </div>
