@@ -328,6 +328,11 @@ html, body {
 
 /* --- Search --- */
 
+.search-count {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .search-wrap {
   position: relative;
 }
@@ -379,6 +384,18 @@ html, body {
 .btn-primary:active { transform: scale(0.96); }
 .btn-primary:disabled { background: var(--primary-disabled); color: var(--muted); cursor: not-allowed; }
 .btn-primary:focus-visible { outline: 2px solid var(--brand-pink); outline-offset: 2px; }
+
+.btn-retry-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+  height: auto;
+}
+.margin-top {
+  margin-top: 16px;
+}
+.code-block-margin {
+  margin-bottom: 16px;
+}
 
 .btn-ghost-sm {
   height: 36px;

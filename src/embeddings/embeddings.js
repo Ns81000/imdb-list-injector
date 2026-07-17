@@ -85,16 +85,12 @@
         label.textContent = 'Model missing';
         sub.textContent = 'Ollama is running but the embedding model needs to be installed.';
         $('#setup-model').classList.remove('hidden');
-
-        scheduleRetry();
       }
     } catch {
       dot.className = 'status-dot offline';
       label.textContent = 'Offline';
       sub.textContent = 'Could not connect to a local Ollama instance.';
       $('#setup-offline').classList.remove('hidden');
-
-      scheduleRetry();
     }
   }
 
@@ -104,31 +100,39 @@
     $('#setup-ready').classList.add('hidden');
   }
 
-  function scheduleRetry() {
-    if (statusRetryTimer) return;
-    statusRetryTimer = setInterval(() => checkOllamaStatus(), 5000);
-  }
+  // Bind manual retry buttons
+  document.querySelectorAll('.btn-retry-status').forEach(btn => {
+    btn.addEventListener('click', checkOllamaStatus);
+  });
 
   // ---- Copy Command Button -----------------------------------------------
 
-  const btnCopyCmd = $('#btn-copy-cmd');
-  if (btnCopyCmd) {
-    btnCopyCmd.addEventListener('click', async () => {
-      const text = $('#pull-command').textContent;
+  document.querySelectorAll('.btn-copy-cmd').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const codeBlock = e.currentTarget.closest('.code-block');
+      const textEl = codeBlock.querySelector('.pull-command-text');
+      if (!textEl) return;
+      
+      const text = textEl.textContent;
+      const originalHTML = btn.innerHTML;
       try {
         await navigator.clipboard.writeText(text);
-        btnCopyCmd.title = 'Copied!';
-        setTimeout(() => { btnCopyCmd.title = 'Copy to clipboard'; }, 2000);
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+        btn.title = 'Copied!';
+        setTimeout(() => { 
+          btn.innerHTML = originalHTML;
+          btn.title = 'Copy to clipboard'; 
+        }, 2000);
       } catch {
         // Fallback: select the text
         const range = document.createRange();
-        range.selectNodeContents($('#pull-command'));
+        range.selectNodeContents(textEl);
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
       }
     });
-  }
+  });
 
   // ---- Keyword Extraction ------------------------------------------------
 
@@ -137,6 +141,7 @@
       chrome.storage.local.get('imdb_lists', (data) => {
         const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
         const counts = new Map();
+        const kwMovies = new Map();
         const seenMovies = new Set();
         let totalUnique = 0;
 
@@ -155,9 +160,14 @@
               if (!clean) continue;
               if (!counts.has(clean)) totalUnique++;
               counts.set(clean, (counts.get(clean) || 0) + 1);
+              if (!kwMovies.has(clean)) kwMovies.set(clean, new Set());
+              kwMovies.get(clean).add(key);
             }
           }
         }
+
+        state.keywordCounts = counts;
+        state.keywordToMovies = kwMovies;
 
         // Filter by minimum occurrences
         const filtered = new Map();
@@ -226,19 +236,15 @@
     });
   }
 
-  async function deleteObsoleteEmbeddings(validKeywords) {
+  async function deleteObsoleteEmbeddings(obsoleteKeys) {
+    if (obsoleteKeys.length === 0) return;
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
-      const req = store.getAllKeys();
-      req.onsuccess = () => {
-        for (const key of req.result) {
-          if (!validKeywords.has(key)) {
-            store.delete(key);
-          }
-        }
-      };
+      for (const key of obsoleteKeys) {
+        store.delete(key);
+      }
       tx.oncomplete = () => { db.close(); resolve(); };
       tx.onerror = () => { db.close(); reject(tx.error); };
     });
@@ -309,20 +315,47 @@
     // 3. Compute diff
     const currentKeys = new Set(keywordCounts.keys());
     const newKeywords = [];
+    const obsoleteKeywords = [];
+    
     for (const kw of currentKeys) {
       if (!cached.has(kw)) newKeywords.push(kw);
     }
+    for (const kw of cached.keys()) {
+      if (!currentKeys.has(kw)) obsoleteKeywords.push(kw);
+    }
+    
+    // If absolutely zero changes, instantly return!
+    if (newKeywords.length === 0 && obsoleteKeywords.length === 0) {
+      statusEl.textContent = 'Database is completely up to date!';
+      barEl.style.width = '100%';
+      statsEl.textContent = 'No additions or deletions found.';
+      state.embeddings = cached;
+      
+      // Load cached order instantly
+      const orderData = await new Promise((resolve) => {
+        chrome.storage.local.get('ai_cluster_order', resolve);
+      });
+      state.orderedKeywords = orderData.ai_cluster_order || Array.from(cached.keys());
+      
+      setTimeout(() => {
+        renderSemanticFlow();
+        showStage('#stage-clusters');
+      }, 800);
+      return;
+    }
 
     // 4. Delete obsolete
-    statusEl.textContent = 'Cleaning obsolete embeddings…';
-    barEl.style.width = '15%';
-    try {
-      await deleteObsoleteEmbeddings(currentKeys);
-    } catch { /* non-critical */ }
-
-    // Remove obsolete from local cache map
-    for (const kw of cached.keys()) {
-      if (!currentKeys.has(kw)) cached.delete(kw);
+    if (obsoleteKeywords.length > 0) {
+      statusEl.textContent = `Cleaning ${obsoleteKeywords.length} obsolete embeddings…`;
+      barEl.style.width = '15%';
+      try {
+        await deleteObsoleteEmbeddings(obsoleteKeywords);
+      } catch { /* non-critical */ }
+      
+      // Remove obsolete from local cache map
+      for (const kw of obsoleteKeywords) {
+        cached.delete(kw);
+      }
     }
 
     // 5. Fetch new embeddings in batches
@@ -353,7 +386,9 @@
         return;
       }
 
-      statusEl.textContent = `Fetching embeddings for ${newKeywords.length} remaining keywords…`;
+      if (newKeywords.length > 0) {
+        statusEl.textContent = `Fetching embeddings for ${newKeywords.length} remaining keywords…`;
+      }
 
       for (let i = 0; i < newKeywords.length; i += BATCH_SIZE) {
         const batch = newKeywords.slice(i, i + BATCH_SIZE);
@@ -379,8 +414,6 @@
         barEl.style.width = `${pct}%`;
         statsEl.textContent = `${cached.size} / ${cached.size + newKeywords.length - Math.min(i + BATCH_SIZE, newKeywords.length)} keywords embedded`;
       }
-    } else {
-      statusEl.textContent = 'All embeddings are up to date.';
     }
 
     // 6. Guard: if no embeddings at all, stay on sync screen with error
@@ -394,12 +427,18 @@
     }
 
     barEl.style.width = '95%';
-    statusEl.textContent = 'Clustering keywords…';
+    statusEl.textContent = 'Sorting Keywords...';
+    statsEl.textContent = 'Computing semantic alignment map...';
 
     // 7. Store and sort semantically
     state.embeddings = cached;
-    const ordered = sortSemantically(cached, state.keywordCounts);
+    const ordered = await sortSemantically(cached, state.keywordCounts);
     state.orderedKeywords = ordered;
+    
+    // Cache the ordered array
+    await new Promise((resolve) => {
+      chrome.storage.local.set({ ai_cluster_order: ordered }, resolve);
+    });
 
     barEl.style.width = '100%';
     statusEl.textContent = `Aligned ${cached.size} keywords by similarity.`;
@@ -421,7 +460,7 @@
     return dot;
   }
 
-  function sortSemantically(embeddings, keywordCounts) {
+  async function sortSemantically(embeddings, keywordCounts) {
     const keywords = Array.from(embeddings.keys());
     const n = keywords.length;
     if (n === 0) return [];
@@ -448,6 +487,7 @@
     ordered.push(keywords[currentIdx]);
 
     // Greedy nearest-neighbor search
+    let ops = 0;
     while (unvisited.size > 0) {
       let bestDist = -Infinity;
       let bestIdx = -1;
@@ -464,6 +504,11 @@
       currentIdx = bestIdx;
       unvisited.delete(currentIdx);
       ordered.push(keywords[currentIdx]);
+      
+      ops++;
+      if (ops % 50 === 0) {
+        await new Promise(r => setTimeout(r, 0));
+      }
     }
 
     return ordered;
@@ -485,6 +530,7 @@
     if (countSpan) countSpan.textContent = `(${state.orderedKeywords.length})`;
 
     const search = state.searchTerm.toLowerCase();
+    let matchCount = 0;
     
     const wrapper = document.createElement('div');
     wrapper.className = 'semantic-flow-container';
@@ -504,6 +550,7 @@
       if (search) {
         if (kw.includes(search)) {
           btn.classList.add('search-match');
+          matchCount++;
         } else {
           btn.classList.add('search-dim');
         }
@@ -519,6 +566,16 @@
     }
     
     body.appendChild(wrapper);
+
+    const searchCountSpan = $('#search-count');
+    if (searchCountSpan) {
+      if (search) {
+        searchCountSpan.textContent = `${matchCount} match${matchCount === 1 ? '' : 'es'}`;
+        searchCountSpan.classList.remove('hidden');
+      } else {
+        searchCountSpan.classList.add('hidden');
+      }
+    }
   }
 
   function toggleKeyword(kw) {
@@ -531,8 +588,24 @@
 
   function updateSelectionCount() {
     const count = state.selectedKeywords.size;
-    $('#selection-count').textContent = `${count} keyword${count === 1 ? '' : 's'} selected`;
-    $('#btn-start-immersive').disabled = count === 0;
+    if (count === 0) {
+      $('#selection-count').textContent = '0 keywords selected';
+      $('#btn-start-immersive').disabled = true;
+      return;
+    }
+    
+    // Calculate matching movies (union of all selected keywords)
+    const matchingMovies = new Set();
+    for (const kw of state.selectedKeywords) {
+      const movies = state.keywordToMovies.get(kw);
+      if (movies) {
+        for (const m of movies) matchingMovies.add(m);
+      }
+    }
+    
+    const movieCount = matchingMovies.size;
+    $('#selection-count').textContent = `${count} keyword${count === 1 ? '' : 's'} selected (${movieCount} item${movieCount === 1 ? '' : 's'})`;
+    $('#btn-start-immersive').disabled = false;
   }
 
   function bindClusterControls() {
@@ -649,8 +722,73 @@
 
   // ---- Boot --------------------------------------------------------------
 
-  bindGlobalControls();
-  showStage('#stage-status');
-  checkOllamaStatus();
+  async function boot() {
+    bindGlobalControls();
+    
+    // Extract keywords immediately for counts
+    const extraction = await extractKeywords();
+    state.keywordCounts = extraction.filtered;
+    
+    if (state.keywordCounts.size === 0) {
+      showStage('#stage-empty');
+      return;
+    }
+    
+    // Load cached embeddings
+    let cached = new Map();
+    try {
+      cached = await loadCachedEmbeddings();
+    } catch { }
+    
+    if (cached.size === 0) {
+      // No DB exists, force the sync screen
+      showStage('#stage-status');
+      checkOllamaStatus();
+    } else {
+      // Load directly from DB without connecting to Ollama
+      const currentKeys = new Set(state.keywordCounts.keys());
+      const validEmbeddings = new Map();
+      
+      for (const [kw, vec] of cached.entries()) {
+        if (currentKeys.has(kw)) {
+          validEmbeddings.set(kw, vec);
+        }
+      }
+      
+      state.embeddings = validEmbeddings;
+      
+      // Try to load cached order
+      const orderData = await new Promise((resolve) => {
+        chrome.storage.local.get('ai_cluster_order', resolve);
+      });
+      
+      let cachedOrder = orderData.ai_cluster_order || [];
+      // Filter out any obsolete keys from cached order
+      cachedOrder = cachedOrder.filter(k => validEmbeddings.has(k));
+      
+      // If we don't have all the valid keys in the cached order, recompute
+      if (cachedOrder.length !== validEmbeddings.size) {
+        showStage('#stage-status');
+        
+        const statusTitle = document.querySelector('#stage-status .panel-title');
+        const statusSub = document.querySelector('#stage-status #status-sub');
+        if (statusTitle) statusTitle.textContent = 'Sorting Keywords';
+        if (statusSub) statusSub.textContent = 'Computing semantic alignment map...';
+        
+        state.orderedKeywords = await sortSemantically(state.embeddings, state.keywordCounts);
+        
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ ai_cluster_order: state.orderedKeywords }, resolve);
+        });
+      } else {
+        state.orderedKeywords = cachedOrder;
+      }
+      
+      showStage('#stage-clusters');
+      renderSemanticFlow();
+    }
+  }
+
+  boot();
 
 })();

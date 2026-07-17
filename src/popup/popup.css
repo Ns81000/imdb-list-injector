@@ -153,9 +153,9 @@ body {
 }
 
 .icon-btn#btn-ai-cluster:hover {
-  border-color: var(--brand-lavender);
+  border-color: var(--ink);
   color: var(--ink);
-  background: var(--brand-lavender);
+  background: var(--surface-card);
 }
 
 .btn-primary-sm {

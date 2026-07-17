@@ -246,7 +246,7 @@
     const sessionKey = await getSessionKey();
     if (sessionKey) {
       state.apiKey = sessionKey;
-      openConfig();
+      if (params.get('aiMovies') === '1') startPlayback(); else openConfig();
     } else {
       const rec = await getEncryptedRecord();
       if (!rec) {
@@ -329,7 +329,7 @@
         const key = await globalThis.ImmersiveCrypto.decrypt(record, value);
         state.apiKey = key;
         try { await chrome.storage.session.set({ imdb_tmdb_key_plain: key }); } catch { /* noop */ }
-        openConfig();
+        if (params.get('aiMovies') === '1') startPlayback(); else openConfig();
       } catch (err) {
         errEl.textContent = err.message === 'Wrong passphrase'
           ? 'Wrong passphrase. Try again.'
