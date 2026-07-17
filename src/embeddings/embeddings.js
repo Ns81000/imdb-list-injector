@@ -10,9 +10,7 @@
   'use strict';
 
   const $ = (s) => document.querySelector(s);
-  const OLLAMA_BASE = 'http://localhost:11434';
   const MODEL_NAME = 'qwen3-embedding:0.6b';
-  const EMBED_DIM = 1024;
   const MIN_KEYWORD_OCCURRENCES = 2;
   const BATCH_SIZE = 50;
 
@@ -57,14 +55,13 @@
     hideSetupCards();
 
     try {
-      const resp = await fetch(`${OLLAMA_BASE}/api/tags`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(5000)
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'OLLAMA_TAGS' }, resolve);
       });
 
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!response || !response.success) throw new Error(response?.error || 'No response');
 
-      const data = await resp.json();
+      const data = response.data;
       const models = Array.isArray(data.models) ? data.models : [];
       const hasModel = models.some((m) =>
         m.name === MODEL_NAME || m.model === MODEL_NAME ||
@@ -241,22 +238,18 @@
   // ---- Ollama Embedding Client -------------------------------------------
 
   async function fetchEmbeddingsBatch(keywords) {
-    const resp = await fetch(`${OLLAMA_BASE}/api/embed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL_NAME,
-        input: keywords
-      })
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { type: 'OLLAMA_EMBED', model: MODEL_NAME, input: keywords },
+        resolve
+      );
     });
 
-    if (!resp.ok) {
-      const errorText = await resp.text().catch(() => '');
-      throw new Error(`Ollama API error: ${resp.status} ${errorText}`);
+    if (!response || !response.success) {
+      throw new Error(`Ollama API error: ${response?.error || 'No response'}`);
     }
 
-    const data = await resp.json();
-    const embeddings = data.embeddings;
+    const embeddings = response.data.embeddings;
 
     if (!Array.isArray(embeddings) || embeddings.length !== keywords.length) {
       throw new Error('Ollama returned unexpected embedding count');

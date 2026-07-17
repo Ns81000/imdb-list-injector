@@ -22,7 +22,8 @@
   },
 
   "host_permissions": [
-    "https://www.imdb.com/*"
+    "https://www.imdb.com/*",
+    "http://localhost:11434/*"
   ],
 
   "background": {

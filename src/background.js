@@ -89,6 +89,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true, ...status });
     return true;
   }
+
+  // --- Ollama API proxy (bypasses CORS for extension pages) ---
+
+  if (message.type === 'OLLAMA_TAGS') {
+    fetch('http://localhost:11434/api/tags', { method: 'GET' })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.type === 'OLLAMA_EMBED') {
+    fetch('http://localhost:11434/api/embed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: message.model, input: message.input })
+    })
+      .then(r => {
+        if (!r.ok) return r.text().then(t => { throw new Error(`HTTP ${r.status} ${t}`); });
+        return r.json();
+      })
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
 });
 
 async function fetchAndParseList(url, attempt = 1) {
