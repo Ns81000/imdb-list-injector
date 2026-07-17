@@ -246,7 +246,7 @@
     const sessionKey = await getSessionKey();
     if (sessionKey) {
       state.apiKey = sessionKey;
-      if (params.get('aiMovies') === '1') startPlayback(); else openConfig();
+      if (params.get('aiMovies') === '1') startPlayback(false); else openConfig();
     } else {
       const rec = await getEncryptedRecord();
       if (!rec) {
@@ -329,7 +329,7 @@
         const key = await globalThis.ImmersiveCrypto.decrypt(record, value);
         state.apiKey = key;
         try { await chrome.storage.session.set({ imdb_tmdb_key_plain: key }); } catch { /* noop */ }
-        if (params.get('aiMovies') === '1') startPlayback(); else openConfig();
+        if (params.get('aiMovies') === '1') startPlayback(false); else openConfig();
       } catch (err) {
         errEl.textContent = err.message === 'Wrong passphrase'
           ? 'Wrong passphrase. Try again.'
@@ -576,7 +576,7 @@
 
   // ---- Playback ----------------------------------------------------------
 
-  function startPlayback() {
+  function startPlayback(autoFullscreen = true) {
     state.ordered = computeFiltered();
     if (state.ordered.length === 0) return;
 
@@ -595,7 +595,9 @@
     $('#info-panel').classList.add('hidden');
 
     bindPlayerControls();
-    requestFullscreen();
+    if (autoFullscreen) {
+      requestFullscreen();
+    }
     startFetchEngine();
   }
 
@@ -1401,6 +1403,16 @@
   function exitPlayer() {
     teardownPlayback();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    
+    if (params.get('aiMovies') === '1') {
+      window.close();
+      // Fallback if window.close() is blocked
+      setTimeout(() => {
+        location.href = '../embeddings/embeddings.html';
+      }, 300);
+      return;
+    }
+    
     // Tabs opened via chrome.tabs.create usually can't be closed by window.close;
     // fall back to the config screen so the user is never stranded.
     openConfig();

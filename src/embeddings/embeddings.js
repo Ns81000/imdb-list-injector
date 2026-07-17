@@ -629,7 +629,7 @@
     // Clear selection
     $('#btn-clear-selection').addEventListener('click', () => {
       state.selectedKeywords.clear();
-      renderClusters();
+      renderKeywords();
       updateSelectionCount();
     });
 
