@@ -216,6 +216,14 @@
     });
   }
 
+  const btnAiCluster = $('#btn-ai-cluster');
+  if (btnAiCluster) {
+    btnAiCluster.addEventListener('click', () => {
+      const url = chrome.runtime.getURL('src/embeddings/embeddings.html');
+      chrome.tabs.create({ url });
+    });
+  }
+
   // --- Add List ---
 
   function resetAddView() {

@@ -152,6 +152,12 @@ body {
   background: var(--primary);
 }
 
+.icon-btn#btn-ai-cluster:hover {
+  border-color: var(--brand-lavender);
+  color: var(--ink);
+  background: var(--brand-lavender);
+}
+
 .btn-primary-sm {
   height: 44px;
   padding: 0 20px;

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="embeddings.css">
+  <title>AI Clustering — Zoom Out</title>
+</head>
+<body>
+
+  <!-- STAGE: STATUS — Ollama connection check -->
+  <section id="stage-status" class="stage">
+    <div class="status-panel">
+      <div class="eyebrow">AI Clustering</div>
+      <h1 class="panel-title">Connecting to Ollama</h1>
+      <p class="panel-sub" id="status-sub">Checking for a local AI instance…</p>
+      <div id="status-indicator" class="status-indicator">
+        <div class="status-dot pulsing"></div>
+        <span class="status-label">Checking…</span>
+      </div>
+
+      <!-- Ollama Offline -->
+      <div id="setup-offline" class="setup-card hidden">
+        <h3 class="setup-title">Ollama not detected</h3>
+        <p class="setup-desc">Install and start Ollama to enable local AI embedding:</p>
+        <ol class="setup-steps">
+          <li>Download Ollama from <a href="https://ollama.com" target="_blank" rel="noopener" class="link">ollama.com</a></li>
+          <li>Install and launch the application</li>
+          <li>Pull the embedding model (see below)</li>
+          <li>Return to this page — it will auto-detect</li>
+        </ol>
+      </div>
+
+      <!-- Model Missing -->
+      <div id="setup-model" class="setup-card hidden">
+        <h3 class="setup-title">Model not installed</h3>
+        <p class="setup-desc">Ollama is running, but the embedding model is missing. Run this in your terminal:</p>
+        <div class="code-block">
+          <code id="pull-command">ollama pull qwen3-embedding:0.6b</code>
+          <button id="btn-copy-cmd" class="btn-copy" title="Copy to clipboard">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="5" width="9" height="9" rx="1.5"/>
+              <path d="M5 11H3.5A1.5 1.5 0 0 1 2 9.5v-7A1.5 1.5 0 0 1 3.5 1h7A1.5 1.5 0 0 1 12 2.5V5"/>
+            </svg>
+          </button>
+        </div>
+        <p class="setup-hint">This page will auto-detect the model once it's installed.</p>
+      </div>
+
+      <!-- Connected -->
+      <div id="setup-ready" class="setup-card hidden">
+        <div class="ready-badge">
+          <div class="status-dot connected"></div>
+          <span>Local AI Connected</span>
+        </div>
+        <p class="setup-desc">qwen3-embedding:0.6b is ready. Loading your keywords…</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- STAGE: SYNC — Keyword extraction + embedding sync -->
+  <section id="stage-sync" class="stage hidden">
+    <div class="sync-panel">
+      <div class="eyebrow">AI Clustering</div>
+      <h1 class="panel-title">Syncing embeddings</h1>
+      <p class="panel-sub" id="sync-status">Extracting keywords from your lists…</p>
+      <div class="sync-progress">
+        <div class="sync-progress-bar" id="sync-bar"></div>
+      </div>
+      <div class="sync-stats" id="sync-stats"></div>
+    </div>
+  </section>
+
+  <!-- STAGE: CLUSTERS — Dynamic keyword clustering view -->
+  <section id="stage-clusters" class="stage hidden">
+    <header class="clusters-header">
+      <div class="clusters-header-left">
+        <div class="eyebrow">AI Clustering</div>
+        <h1 class="clusters-title">Keyword Clusters</h1>
+      </div>
+      <div class="clusters-header-right">
+        <div class="ready-badge compact">
+          <div class="status-dot connected"></div>
+          <span>Local AI</span>
+        </div>
+        <div class="search-wrap">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="7" cy="7" r="4.5"/>
+            <path d="M10.5 10.5L14 14"/>
+          </svg>
+          <input id="search-input" class="search-field" type="text" placeholder="Search keywords…" spellcheck="false" autocomplete="off">
+        </div>
+        <button id="btn-resync" class="btn-ghost-sm" title="Re-sync embeddings">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 2v5h5"/>
+            <path d="M3.51 10a5.5 5.5 0 1 0 .68-5.97L1 7"/>
+          </svg>
+          Re-sync
+        </button>
+      </div>
+    </header>
+
+    <div class="clusters-body" id="clusters-body">
+      <!-- Cluster cards rendered dynamically -->
+    </div>
+
+    <footer class="clusters-footer" id="clusters-footer">
+      <div class="footer-left">
+        <span class="selection-count" id="selection-count">0 keywords selected</span>
+      </div>
+      <div class="footer-right">
+        <button id="btn-clear-selection" class="btn-ghost-sm">Clear</button>
+        <button id="btn-start-immersive" class="btn-primary" disabled>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1.5" y="3" width="13" height="10" rx="1.5"/>
+            <path d="M6.5 6.2v3.6l3-1.8z" fill="currentColor" stroke="none"/>
+          </svg>
+          Start Immersive Playback
+        </button>
+      </div>
+    </footer>
+  </section>
+
+  <!-- STAGE: EMPTY — No keywords available -->
+  <section id="stage-empty" class="stage hidden">
+    <div class="status-panel">
+      <div class="eyebrow">AI Clustering</div>
+      <h1 class="panel-title">No keywords to cluster</h1>
+      <p class="panel-sub">Your saved lists don't have keywords yet. Go back to the extension popup and click "Keywords" on a list to fetch them from IMDb first.</p>
+    </div>
+  </section>
+
+  <script src="embeddings.js"></script>
+</body>
+</html>

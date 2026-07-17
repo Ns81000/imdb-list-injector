@@ -210,6 +210,32 @@
     }
     state.source = movies;
 
+    // If launched from the AI Clustering page, pre-populate keyword filters.
+    if (params.get('aiKeywords') === '1') {
+      try {
+        const aiKw = await new Promise((resolve) => {
+          try {
+            chrome.storage.session.get('ai_cluster_keywords', (data) => {
+              resolve((data && Array.isArray(data.ai_cluster_keywords)) ? data.ai_cluster_keywords : null);
+            });
+          } catch { resolve(null); }
+        });
+        const keywords = aiKw || await new Promise((resolve) => {
+          chrome.storage.local.get('ai_cluster_keywords', (data) => {
+            resolve((data && Array.isArray(data.ai_cluster_keywords)) ? data.ai_cluster_keywords : []);
+          });
+        });
+        if (keywords.length > 0) {
+          for (const kw of keywords) {
+            state.config.keywords.add(facetKey(kw));
+          }
+        }
+        // Clean up the temporary key
+        try { chrome.storage.session.remove('ai_cluster_keywords'); } catch { /* noop */ }
+        try { chrome.storage.local.remove('ai_cluster_keywords'); } catch { /* noop */ }
+      } catch { /* non-critical — proceed without pre-selected keywords */ }
+    }
+
     // Resolve the API key: session cache first, else decrypt via passphrase.
     const sessionKey = await getSessionKey();
     if (sessionKey) {
