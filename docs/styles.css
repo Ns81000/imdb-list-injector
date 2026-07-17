@@ -588,10 +588,13 @@ h4 { font-weight: 600; font-size: 16px; line-height: 1.4; }
 .fc-peach    { background: var(--brand-peach); }
 .fc-ochre    { background: var(--brand-ochre); }
 .fc-cream    { background: var(--surface-card); }
+.fc-coral    { background: var(--brand-coral); }
+.fc-mint     { background: var(--brand-mint); }
 
 .fc-pink h3, .fc-pink p,
-.fc-teal h3, .fc-teal p { color: var(--on-dark); }
-.fc-lavender p, .fc-peach p, .fc-ochre p, .fc-cream p { color: var(--body-strong); }
+.fc-teal h3, .fc-teal p,
+.fc-coral h3, .fc-coral p { color: var(--on-dark); }
+.fc-lavender p, .fc-peach p, .fc-ochre p, .fc-cream p, .fc-mint p { color: var(--body-strong); }
 
 .card-icon {
   width: 44px;
@@ -603,7 +606,7 @@ h4 { font-weight: 600; font-size: 16px; line-height: 1.4; }
   color: var(--ink);
   margin-bottom: var(--sp-lg);
 }
-.fc-pink .card-icon, .fc-teal .card-icon {
+.fc-pink .card-icon, .fc-teal .card-icon, .fc-coral .card-icon {
   background: rgba(255, 255, 255, 0.16);
   color: var(--on-dark);
 }

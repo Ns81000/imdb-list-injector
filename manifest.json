@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Zoom Out",
-  "version": "1.4.0",
-  "description": "Every list deserves the big screen. Save IMDB lists, export them as CSV/JSON/Markdown/text, and project them as a full-screen cinematic slideshow.",
+  "version": "1.5.0",
+  "description": "Every list deserves the big screen. Save IMDB lists, export as CSV/JSON/Markdown/text, scrape keywords, cluster them with local AI (Ollama), and project everything as a full-screen cinematic slideshow.",
   "minimum_chrome_version": "114",
 
   "permissions": [

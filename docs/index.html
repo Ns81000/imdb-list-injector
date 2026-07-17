@@ -30,6 +30,7 @@
       <nav class="nav-links" aria-label="Primary">
         <a href="#features">Features</a>
         <a href="#immersive">Immersive</a>
+        <a href="#ai">AI Clustering</a>
         <a href="#privacy">Privacy</a>
         <a href="#install">Install</a>
       </nav>
@@ -47,6 +48,7 @@
     <div class="nav-drawer" hidden>
       <a href="#features">Features</a>
       <a href="#immersive">Immersive</a>
+      <a href="#ai">AI Clustering</a>
       <a href="#privacy">Privacy</a>
       <a href="#install">Install</a>
       <a href="https://github.com/Ns81000/imdb-list-injector" target="_blank" rel="noopener">GitHub ↗</a>
@@ -64,7 +66,8 @@
           <p class="hero-sub reveal" data-delay="400">
             Zoom Out captures any public IMDB list as clean, structured data you can
             copy or export anywhere — then steps back and projects it as a full-screen,
-            backdrop-driven cinema of everything you want to watch.
+            backdrop-driven cinema of everything you want to watch. Now with keyword
+            scraping and local AI clustering to discover hidden patterns across your library.
           </p>
           <div class="hero-cta reveal" data-delay="550">
             <a class="btn btn-solid btn-lg" href="#install">
@@ -138,11 +141,13 @@
           <span>CSV</span><b>·</b><span>JSON</span><b>·</b><span>Markdown</span><b>·</b><span>Plain text</span><b>·</b>
           <span>Full-list pagination</span><b>·</b><span>Local library</span><b>·</b><span>Cinematic slideshow</span><b>·</b>
           <span>Live filters</span><b>·</b><span>Clips reel</span><b>·</b><span>Encrypted keys</span><b>·</b>
+          <span>Keyword scraping</span><b>·</b><span>AI clustering</span><b>·</b><span>Local Ollama</span><b>·</b>
         </div>
         <div class="film-run" aria-hidden="true">
           <span>CSV</span><b>·</b><span>JSON</span><b>·</b><span>Markdown</span><b>·</b><span>Plain text</span><b>·</b>
           <span>Full-list pagination</span><b>·</b><span>Local library</span><b>·</b><span>Cinematic slideshow</span><b>·</b>
           <span>Live filters</span><b>·</b><span>Clips reel</span><b>·</b><span>Encrypted keys</span><b>·</b>
+          <span>Keyword scraping</span><b>·</b><span>AI clustering</span><b>·</b><span>Local Ollama</span><b>·</b>
         </div>
       </div>
     </section>
@@ -217,7 +222,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
           </div>
           <h3>Filters built from your data</h3>
-          <p>Sort, type, genre, and runtime pills are generated from the list itself — a short-runtime TV list gets sensible buckets, not movie-length ones.</p>
+          <p>Sort, type, genre, keyword, and runtime pills are generated from the list itself — a short-runtime TV list gets sensible buckets, not movie-length ones.</p>
         </article>
 
         <article class="card fc-cream reveal" data-delay="240">
@@ -227,13 +232,29 @@
           <h3>Encrypted at rest</h3>
           <p>Your TMDB key is sealed with AES-256-GCM behind a passphrase — PBKDF2-SHA256, 310,000 iterations. The plaintext is never persisted.</p>
         </article>
+
+        <article class="card fc-coral reveal" data-delay="0">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8h10M7 12h6M7 16h8"/></svg>
+          </div>
+          <h3>IMDb keyword scraping</h3>
+          <p>Scrape every keyword IMDb has for every title — batch-saved with live progress, cancel, resume. Keywords survive list refreshes and power filters.</p>
+        </article>
+
+        <article class="card fc-mint reveal" data-delay="80">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M12 8v3M7.5 17.2 10 12.5M16.5 17.2 14 12.5"/></svg>
+          </div>
+          <h3>Local AI clustering</h3>
+          <p>Embed your scraped keywords with a local Ollama model, then explore a semantically sorted map of meaning — select clusters and launch them straight into cinema.</p>
+        </article>
       </div>
 
       <div class="stats reveal">
         <div class="stat"><span class="stat-n" data-count="9">0</span><span class="stat-l">metadata fields per title</span></div>
         <div class="stat"><span class="stat-n" data-count="4">0</span><span class="stat-l">export formats</span></div>
         <div class="stat"><span class="stat-n" data-count="100" data-suffix="%">0</span><span class="stat-l">stored locally</span></div>
-        <div class="stat"><span class="stat-n" data-count="0">0</span><span class="stat-l">servers &amp; trackers</span></div>
+        <div class="stat"><span class="stat-n" data-count="0">0</span><span class="stat-l">cloud servers</span></div>
       </div>
     </section>
 
@@ -245,7 +266,7 @@
         <p class="section-sub reveal" data-delay="160">
           One keypress turns a spreadsheet of titles into a wall of cinema. Posters and
           high-resolution backdrops stream in live from TMDB while you browse, shuffle,
-          and filter without ever leaving the player.
+          and filter — including by keywords — without ever leaving the player.
         </p>
       </div>
 
@@ -297,6 +318,33 @@
       </div>
     </section>
 
+    <!-- ===================== AI CLUSTERING ===================== -->
+    <section class="section ai-section" id="ai">
+      <div class="section-head">
+        <p class="eyebrow reveal">AI Clustering</p>
+        <h2 class="reveal" data-delay="80">See what connects your library.</h2>
+        <p class="section-sub reveal" data-delay="160">
+          Zoom Out scrapes every keyword from IMDb, embeds them with a local AI model running on your machine,
+          and sorts them by semantic similarity — revealing hidden thematic threads across hundreds of titles.
+        </p>
+      </div>
+
+      <div class="immersive-points">
+        <div class="point reveal" data-delay="0">
+          <h4>Scrape → Embed → Align</h4>
+          <p>One-click keyword scraping feeds into Ollama's <code>qwen3-embedding</code> model. Keywords are sorted by cosine similarity into a continuous river of meaning you can visually scan.</p>
+        </div>
+        <div class="point reveal" data-delay="100">
+          <h4>Select and launch</h4>
+          <p>Search, browse, and pick keyword clusters — the matched movies are passed directly to the Immersive cinema player for instant backdrop-driven playback.</p>
+        </div>
+        <div class="point reveal" data-delay="200">
+          <h4>100% on your machine</h4>
+          <p>Ollama runs locally. No keyword or movie data ever leaves your computer. Embeddings are cached in IndexedDB for instant re-loads without re-computing.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- ===================== PRIVACY ===================== -->
     <section class="section privacy" id="privacy">
       <div class="privacy-inner reveal">
@@ -313,6 +361,7 @@
             <li>All list data lives in <code>chrome.storage.local</code></li>
             <li>TMDB key encrypted with AES-256-GCM + your passphrase</li>
             <li>Decrypted key held in session memory only, cleared on close</li>
+            <li>AI embeddings run locally via Ollama — never sent to a cloud</li>
             <li>Open source, MIT licensed — read every line</li>
           </ul>
         </div>
@@ -395,11 +444,22 @@
           </ol>
         </div>
         <div class="extra-card xc-peach">
+          <h4>Enable AI clustering <span class="tag">optional</span></h4>
+          <ol>
+            <li>Install <a href="https://ollama.com/download" target="_blank" rel="noopener">Ollama</a> and launch it.</li>
+            <li>Pull the embedding model: <code>ollama pull qwen3-embedding:0.6b</code></li>
+            <li>Scrape keywords for your lists, then click the AI Clustering icon in the extension header.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="install-extra reveal" style="margin-top: var(--sp-lg)">
+        <div class="extra-card" style="background: var(--surface-card); grid-column: 1 / -1">
           <h4>Updating <span class="tag">later</span></h4>
           <ol>
             <li>Pull the latest changes: <code>git pull</code>.</li>
             <li>On <code>chrome://extensions</code>, hit the ↻ refresh icon on the Zoom Out card.</li>
-            <li>Your library, settings, and encrypted key all stay intact.</li>
+            <li>Your library, settings, keywords, embeddings, and encrypted key all stay intact.</li>
           </ol>
         </div>
       </div>
