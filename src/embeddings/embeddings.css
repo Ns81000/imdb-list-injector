@@ -63,6 +63,42 @@ html, body {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
+  position: relative;
+}
+
+/* --- Scroll FABs --- */
+.scroll-fab-container {
+  position: absolute;
+  bottom: 100px;
+  right: clamp(24px, 4vw, 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 50;
+}
+
+.fab-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface-card);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: transform 0.15s var(--ease-out), background 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+
+.fab-btn:hover {
+  background: var(--surface-strong);
+  border-color: var(--ink);
+}
+
+.fab-btn:active {
+  transform: scale(0.92);
 }
 
 /* --- Status / Sync Panels (centered) --- */
@@ -471,6 +507,7 @@ html, body {
 
 .pill.search-match {
   box-shadow: 0 0 0 2px var(--brand-lavender);
+  order: -1;
 }
 
 .pill.search-dim {

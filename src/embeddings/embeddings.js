@@ -626,6 +626,15 @@
     // Retry (sync screen)
     $('#btn-sync-retry').addEventListener('click', doResync);
 
+    // Scroll to Top / Bottom
+    $('#btn-scroll-top').addEventListener('click', () => {
+      $('#clusters-body').scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    $('#btn-scroll-bottom').addEventListener('click', () => {
+      const body = $('#clusters-body');
+      body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+    });
+
     // Clear selection
     $('#btn-clear-selection').addEventListener('click', () => {
       state.selectedKeywords.clear();
