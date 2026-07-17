@@ -10,7 +10,8 @@
   'use strict';
 
   const $ = (s) => document.querySelector(s);
-  const MODEL_NAME = 'qwen3-embedding:0.6b';
+  const MODEL_HINT = 'qwen3-embedding';   // prefix used for detection
+  const MODEL_FALLBACK = 'qwen3-embedding:0.6b';
   const MIN_KEYWORD_OCCURRENCES = 2;
   const BATCH_SIZE = 50;
 
@@ -24,6 +25,7 @@
   ];
 
   const state = {
+    detectedModel: MODEL_FALLBACK,
     selectedKeywords: new Set(),
     keywordCounts: new Map(),   // keyword -> occurrence count across lists
     embeddings: new Map(),      // keyword -> Float32Array
@@ -63,16 +65,18 @@
 
       const data = response.data;
       const models = Array.isArray(data.models) ? data.models : [];
-      const hasModel = models.some((m) =>
-        m.name === MODEL_NAME || m.model === MODEL_NAME ||
-        (m.name && m.name.startsWith('qwen3-embedding')) ||
-        (m.model && m.model.startsWith('qwen3-embedding'))
+      const match = models.find((m) =>
+        (m.name && m.name.startsWith(MODEL_HINT)) ||
+        (m.model && m.model.startsWith(MODEL_HINT))
       );
 
-      if (hasModel) {
+      if (match) {
+        // Store the exact name Ollama knows this model by
+        state.detectedModel = match.model || match.name || MODEL_FALLBACK;
+
         dot.className = 'status-dot connected';
         label.textContent = 'Connected';
-        sub.textContent = 'Local AI is ready.';
+        sub.textContent = `Model: ${state.detectedModel}`;
         $('#setup-ready').classList.remove('hidden');
 
         clearInterval(statusRetryTimer);
@@ -240,7 +244,7 @@
   async function fetchEmbeddingsBatch(keywords) {
     const response = await new Promise((resolve) => {
       chrome.runtime.sendMessage(
-        { type: 'OLLAMA_EMBED', model: MODEL_NAME, input: keywords },
+        { type: 'OLLAMA_EMBED', model: state.detectedModel, input: keywords },
         resolve
       );
     });
@@ -331,8 +335,9 @@
           }
           await saveBatchEmbeddings(toSave);
         } catch (err) {
-          statusEl.textContent = `Error fetching embeddings: ${err.message}`;
-          statsEl.textContent = 'Will retry on next sync.';
+          statusEl.textContent = `Embedding error: ${err.message}`;
+          statusEl.classList.add('sync-error');
+          statsEl.textContent = 'Will use any keywords embedded so far.';
           // Continue with what we have
           break;
         }
@@ -346,10 +351,20 @@
       statusEl.textContent = 'All embeddings are up to date.';
     }
 
+    // 6. Guard: if no embeddings at all, stay on sync screen with error
+    if (cached.size === 0) {
+      barEl.style.width = '100%';
+      statusEl.textContent = 'Could not generate any embeddings.';
+      statusEl.classList.add('sync-error');
+      statsEl.textContent = `${newKeywords.length} keywords found but embedding failed. Check that the model "${state.detectedModel}" is responding.`;
+      $('#btn-sync-retry').classList.remove('hidden');
+      return;
+    }
+
     barEl.style.width = '95%';
     statusEl.textContent = 'Clustering keywords…';
 
-    // 6. Store and cluster
+    // 7. Store and cluster
     state.embeddings = cached;
     const clusters = runDBSCAN(cached, state.keywordCounts);
     state.clusters = clusters;
@@ -358,7 +373,7 @@
     statusEl.textContent = `Created ${clusters.length} clusters from ${cached.size} keywords.`;
     statsEl.textContent = '';
 
-    // 7. Switch to cluster view
+    // 8. Switch to cluster view
     setTimeout(() => {
       renderClusterView();
       showStage('#stage-clusters');
@@ -561,27 +576,28 @@
   }
 
   function bindClusterControls() {
-    // Search
+    // Search (re-bound each render since the input may be fresh)
     const searchInput = $('#search-input');
     searchInput.addEventListener('input', () => {
       state.searchTerm = searchInput.value.trim();
       renderClusters();
     });
+  }
+
+  // Bind all static buttons once at boot so they work regardless of which
+  // stage is visible (fixes Re-sync being dead on the error path).
+  function bindGlobalControls() {
+    // Re-sync (clusters header)
+    $('#btn-resync').addEventListener('click', doResync);
+
+    // Retry (sync screen)
+    $('#btn-sync-retry').addEventListener('click', doResync);
 
     // Clear selection
     $('#btn-clear-selection').addEventListener('click', () => {
       state.selectedKeywords.clear();
       renderClusters();
       updateSelectionCount();
-    });
-
-    // Re-sync
-    $('#btn-resync').addEventListener('click', () => {
-      state.selectedKeywords.clear();
-      state.embeddings.clear();
-      state.clusters = [];
-      checkOllamaStatus();
-      showStage('#stage-status');
     });
 
     // Start Immersive Playback
@@ -620,6 +636,18 @@
     });
   }
 
+  function doResync() {
+    state.selectedKeywords.clear();
+    state.embeddings.clear();
+    state.clusters = [];
+    // Reset sync-error styling
+    const statusEl = $('#sync-status');
+    if (statusEl) statusEl.classList.remove('sync-error');
+    $('#btn-sync-retry').classList.add('hidden');
+    showStage('#stage-status');
+    checkOllamaStatus();
+  }
+
   // ---- Helpers -----------------------------------------------------------
 
   function escapeHtml(value) {
@@ -633,6 +661,7 @@
 
   // ---- Boot --------------------------------------------------------------
 
+  bindGlobalControls();
   showStage('#stage-status');
   checkOllamaStatus();
 
