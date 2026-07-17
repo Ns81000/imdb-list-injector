@@ -319,10 +319,34 @@
     }
 
     // 5. Fetch new embeddings in batches
+    let lastError = '';
     if (newKeywords.length > 0) {
-      statusEl.textContent = `Fetching embeddings for ${newKeywords.length} new keywords…`;
+      statusEl.textContent = `Embedding ${newKeywords.length} keywords via ${state.detectedModel}…`;
       const totalBatches = Math.ceil(newKeywords.length / BATCH_SIZE);
       let completedBatches = 0;
+
+      // Probe: send a single keyword first to verify the API works and let
+      // Ollama load the model into memory before we hit it with full batches.
+      try {
+        statusEl.textContent = `Loading model ${state.detectedModel}… (first call may take a moment)`;
+        const probe = await fetchEmbeddingsBatch([newKeywords[0]]);
+        const probeVec = probe.get(newKeywords[0]);
+        if (probeVec) {
+          cached.set(newKeywords[0], probeVec);
+          await saveBatchEmbeddings([{ keyword: newKeywords[0], vector: probeVec }]);
+        }
+        // Remove the probed keyword from the remaining list
+        newKeywords.shift();
+      } catch (err) {
+        lastError = err.message || String(err);
+        statusEl.textContent = `Embedding probe failed: ${lastError}`;
+        statusEl.classList.add('sync-error');
+        statsEl.textContent = 'The model could not produce embeddings. Check Ollama logs.';
+        $('#btn-sync-retry').classList.remove('hidden');
+        return;
+      }
+
+      statusEl.textContent = `Fetching embeddings for ${newKeywords.length} remaining keywords…`;
 
       for (let i = 0; i < newKeywords.length; i += BATCH_SIZE) {
         const batch = newKeywords.slice(i, i + BATCH_SIZE);
@@ -335,9 +359,10 @@
           }
           await saveBatchEmbeddings(toSave);
         } catch (err) {
-          statusEl.textContent = `Embedding error: ${err.message}`;
+          lastError = err.message || String(err);
+          statusEl.textContent = `Embedding error: ${lastError}`;
           statusEl.classList.add('sync-error');
-          statsEl.textContent = 'Will use any keywords embedded so far.';
+          statsEl.textContent = `Embedded ${cached.size} keywords so far. Will cluster what we have.`;
           // Continue with what we have
           break;
         }
@@ -345,7 +370,7 @@
         completedBatches++;
         const pct = 15 + Math.round((completedBatches / totalBatches) * 75);
         barEl.style.width = `${pct}%`;
-        statsEl.textContent = `${Math.min((i + BATCH_SIZE), newKeywords.length)} / ${newKeywords.length} keywords embedded`;
+        statsEl.textContent = `${cached.size} / ${cached.size + newKeywords.length - Math.min(i + BATCH_SIZE, newKeywords.length)} keywords embedded`;
       }
     } else {
       statusEl.textContent = 'All embeddings are up to date.';
@@ -354,9 +379,9 @@
     // 6. Guard: if no embeddings at all, stay on sync screen with error
     if (cached.size === 0) {
       barEl.style.width = '100%';
-      statusEl.textContent = 'Could not generate any embeddings.';
+      statusEl.textContent = lastError ? `Embedding failed: ${lastError}` : 'Could not generate any embeddings.';
       statusEl.classList.add('sync-error');
-      statsEl.textContent = `${newKeywords.length} keywords found but embedding failed. Check that the model "${state.detectedModel}" is responding.`;
+      statsEl.textContent = `${state.keywordCounts.size} keywords found but none could be embedded.`;
       $('#btn-sync-retry').classList.remove('hidden');
       return;
     }
