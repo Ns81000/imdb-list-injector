@@ -15,10 +15,6 @@
   const MIN_KEYWORD_OCCURRENCES = 2;
   const BATCH_SIZE = 50;
 
-  // DBSCAN parameters
-  const DBSCAN_EPS = 0.38;    // cosine distance threshold (1 - similarity)
-  const DBSCAN_MIN_PTS = 2;   // min cluster size
-
   const ACCENT_CLASSES = [
     'cluster-accent-0', 'cluster-accent-1', 'cluster-accent-2',
     'cluster-accent-3', 'cluster-accent-4', 'cluster-accent-5'
@@ -29,7 +25,7 @@
     selectedKeywords: new Set(),
     keywordCounts: new Map(),   // keyword -> occurrence count across lists
     embeddings: new Map(),      // keyword -> Float32Array
-    clusters: [],               // [{label, keywords: [string]}]
+    orderedKeywords: [],        // [string] ordered by semantic similarity
     searchTerm: ''
   };
 
@@ -141,14 +137,23 @@
       chrome.storage.local.get('imdb_lists', (data) => {
         const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
         const counts = new Map();
+        const seenMovies = new Set();
+        let totalUnique = 0;
 
         for (const list of lists) {
           if (!list || !Array.isArray(list.movies)) continue;
           for (const movie of list.movies) {
-            if (!movie || !Array.isArray(movie.keywords)) continue;
+            if (!movie || typeof movie !== 'object') continue;
+            const id = String(movie.imdb_id || '').trim();
+            const key = id || `t:${movie.title}|${movie.year}`;
+            if (seenMovies.has(key)) continue;
+            seenMovies.add(key);
+
+            if (!Array.isArray(movie.keywords)) continue;
             for (const kw of movie.keywords) {
               const clean = String(kw).trim().toLowerCase();
               if (!clean) continue;
+              if (!counts.has(clean)) totalUnique++;
               counts.set(clean, (counts.get(clean) || 0) + 1);
             }
           }
@@ -162,7 +167,7 @@
           }
         }
 
-        resolve(filtered);
+        resolve({ filtered, totalUnique });
       });
     });
   }
@@ -280,7 +285,8 @@
     statsEl.textContent = '';
 
     // 1. Extract keywords
-    const keywordCounts = await extractKeywords();
+    const extraction = await extractKeywords();
+    const keywordCounts = extraction.filtered;
     state.keywordCounts = keywordCounts;
 
     if (keywordCounts.size === 0) {
@@ -288,7 +294,8 @@
       return;
     }
 
-    statusEl.textContent = `Found ${keywordCounts.size} keywords. Loading cache…`;
+    const dropped = extraction.totalUnique - keywordCounts.size;
+    statusEl.textContent = `Found ${keywordCounts.size} recurring keywords (skipped ${dropped} single-use). Loading cache…`;
     barEl.style.width = '10%';
 
     // 2. Load cache
@@ -389,23 +396,23 @@
     barEl.style.width = '95%';
     statusEl.textContent = 'Clustering keywords…';
 
-    // 7. Store and cluster
+    // 7. Store and sort semantically
     state.embeddings = cached;
-    const clusters = runDBSCAN(cached, state.keywordCounts);
-    state.clusters = clusters;
+    const ordered = sortSemantically(cached, state.keywordCounts);
+    state.orderedKeywords = ordered;
 
     barEl.style.width = '100%';
-    statusEl.textContent = `Created ${clusters.length} clusters from ${cached.size} keywords.`;
+    statusEl.textContent = `Aligned ${cached.size} keywords by similarity.`;
     statsEl.textContent = '';
 
     // 8. Switch to cluster view
     setTimeout(() => {
-      renderClusterView();
+      renderSemanticFlow();
       showStage('#stage-clusters');
     }, 600);
   }
 
-  // ---- DBSCAN Clustering -------------------------------------------------
+  // ---- Semantic Sorting (1D Alignment) -----------------------------------
 
   function cosineSimilarity(a, b) {
     // Vectors from Ollama are L2-normalized, so dot product = cosine sim.
@@ -414,176 +421,101 @@
     return dot;
   }
 
-  function runDBSCAN(embeddings, keywordCounts) {
+  function sortSemantically(embeddings, keywordCounts) {
     const keywords = Array.from(embeddings.keys());
     const n = keywords.length;
     if (n === 0) return [];
 
-    // Pre-compute a similarity matrix for small-to-medium sets.
-    // For very large sets (>5000), we'd want a KD-tree, but keywords
-    // rarely exceed a few thousand.
-    const vectors = keywords.map((kw) => embeddings.get(kw));
+    // Pre-calculate vectors
+    const vecs = keywords.map((kw) => embeddings.get(kw));
+    const unvisited = new Set();
+    for (let i = 0; i < n; i++) unvisited.add(i);
 
-    const NOISE = -1;
-    const UNVISITED = -2;
-    const labels = new Array(n).fill(UNVISITED);
-    let clusterId = 0;
-
-    function regionQuery(idx) {
-      const neighbors = [];
-      const vec = vectors[idx];
-      for (let j = 0; j < n; j++) {
-        if (j === idx) continue;
-        const dist = 1 - cosineSimilarity(vec, vectors[j]);
-        if (dist <= DBSCAN_EPS) neighbors.push(j);
+    const ordered = [];
+    
+    // Start with the most frequent keyword
+    let currentIdx = 0;
+    let maxCount = -1;
+    for (let i = 0; i < n; i++) {
+      const c = keywordCounts.get(keywords[i]) || 0;
+      if (c > maxCount) {
+        maxCount = c;
+        currentIdx = i;
       }
-      return neighbors;
     }
 
-    for (let i = 0; i < n; i++) {
-      if (labels[i] !== UNVISITED) continue;
+    unvisited.delete(currentIdx);
+    ordered.push(keywords[currentIdx]);
 
-      const neighbors = regionQuery(i);
-      if (neighbors.length < DBSCAN_MIN_PTS) {
-        labels[i] = NOISE;
-        continue;
-      }
+    // Greedy nearest-neighbor search
+    while (unvisited.size > 0) {
+      let bestDist = -Infinity;
+      let bestIdx = -1;
+      const currentVec = vecs[currentIdx];
 
-      labels[i] = clusterId;
-      const seed = [...neighbors];
-
-      for (let s = 0; s < seed.length; s++) {
-        const j = seed[s];
-        if (labels[j] === NOISE) labels[j] = clusterId;
-        if (labels[j] !== UNVISITED) continue;
-
-        labels[j] = clusterId;
-        const jNeighbors = regionQuery(j);
-        if (jNeighbors.length >= DBSCAN_MIN_PTS) {
-          for (const k of jNeighbors) {
-            if (!seed.includes(k)) seed.push(k);
-          }
+      for (const next of unvisited) {
+        const dist = cosineSimilarity(currentVec, vecs[next]);
+        if (dist > bestDist) {
+          bestDist = dist;
+          bestIdx = next;
         }
       }
 
-      clusterId++;
+      currentIdx = bestIdx;
+      unvisited.delete(currentIdx);
+      ordered.push(keywords[currentIdx]);
     }
 
-    // Group keywords by cluster
-    const clusterMap = new Map();
-    const noiseKeywords = [];
-
-    for (let i = 0; i < n; i++) {
-      if (labels[i] === NOISE) {
-        noiseKeywords.push(keywords[i]);
-      } else {
-        const cid = labels[i];
-        if (!clusterMap.has(cid)) clusterMap.set(cid, []);
-        clusterMap.get(cid).push(keywords[i]);
-      }
-    }
-
-    // Build cluster objects with auto-labels
-    const clusters = [];
-    for (const [, members] of clusterMap) {
-      // Sort members by count descending
-      members.sort((a, b) => (keywordCounts.get(b) || 0) - (keywordCounts.get(a) || 0));
-
-      // Auto-label: pick the most frequent keyword, prefer shorter labels
-      let label = members[0];
-      const topCount = keywordCounts.get(members[0]) || 0;
-      for (const m of members) {
-        const count = keywordCounts.get(m) || 0;
-        if (count === topCount && m.length < label.length) label = m;
-        if (count < topCount) break;
-      }
-
-      clusters.push({ label, keywords: members });
-    }
-
-    // Sort clusters by size descending
-    clusters.sort((a, b) => b.keywords.length - a.keywords.length);
-
-    // Add noise cluster at the end if any
-    if (noiseKeywords.length > 0) {
-      noiseKeywords.sort((a, b) => (keywordCounts.get(b) || 0) - (keywordCounts.get(a) || 0));
-      clusters.push({ label: 'Other', keywords: noiseKeywords, isNoise: true });
-    }
-
-    return clusters;
+    return ordered;
   }
 
-  // ---- Cluster UI Rendering ----------------------------------------------
+  // ---- Flow UI Rendering -------------------------------------------------
 
-  function renderClusterView() {
-    renderClusters();
+  function renderSemanticFlow() {
+    renderKeywords();
     updateSelectionCount();
     bindClusterControls();
   }
 
-  function renderClusters() {
+  function renderKeywords() {
     const body = $('#clusters-body');
     body.innerHTML = '';
 
     const search = state.searchTerm.toLowerCase();
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = 'semantic-flow-container';
 
-    for (let ci = 0; ci < state.clusters.length; ci++) {
-      const cluster = state.clusters[ci];
-      const card = document.createElement('div');
-      card.className = cluster.isNoise ? 'cluster-card noise-cluster' : 'cluster-card';
+    for (let i = 0; i < state.orderedKeywords.length; i++) {
+      const kw = state.orderedKeywords[i];
+      const count = state.keywordCounts.get(kw) || 0;
 
-      const accentClass = ACCENT_CLASSES[ci % ACCENT_CLASSES.length];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pill';
+      btn.dataset.keyword = kw;
+      btn.innerHTML = `${escapeHtml(kw)}<span class="pill-count">${count}</span>`;
+      btn.setAttribute('aria-pressed', String(state.selectedKeywords.has(kw)));
 
-      // Check if any keywords in this cluster match search
-      const hasSearchMatch = search
-        ? cluster.keywords.some((kw) => kw.includes(search))
-        : true;
-
-      if (search && !hasSearchMatch) {
-        card.style.display = 'none';
-      }
-
-      card.innerHTML = `
-        <div class="cluster-head">
-          <div class="cluster-accent ${accentClass}"></div>
-          <span class="cluster-label">${escapeHtml(cluster.label)}</span>
-          <span class="cluster-count">${cluster.keywords.length} keyword${cluster.keywords.length === 1 ? '' : 's'}</span>
-        </div>
-        <div class="pill-row"></div>
-      `;
-
-      const pillRow = card.querySelector('.pill-row');
-
-      for (const kw of cluster.keywords) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'pill';
-        btn.dataset.keyword = kw;
-
-        const count = state.keywordCounts.get(kw) || 0;
-        btn.innerHTML = `${escapeHtml(kw)}<span class="pill-count">${count}</span>`;
-        btn.setAttribute('aria-pressed', String(state.selectedKeywords.has(kw)));
-
-        // Search highlighting
-        if (search) {
-          if (kw.includes(search)) {
-            btn.classList.add('search-match');
-          } else {
-            btn.classList.add('search-dim');
-          }
+      // Search highlighting
+      if (search) {
+        if (kw.includes(search)) {
+          btn.classList.add('search-match');
+        } else {
+          btn.classList.add('search-dim');
         }
-
-        btn.addEventListener('click', () => {
-          toggleKeyword(kw);
-          btn.setAttribute('aria-pressed', String(state.selectedKeywords.has(kw)));
-          updateSelectionCount();
-        });
-
-        pillRow.appendChild(btn);
       }
 
-      body.appendChild(card);
+      btn.addEventListener('click', () => {
+        toggleKeyword(kw);
+        btn.setAttribute('aria-pressed', String(state.selectedKeywords.has(kw)));
+        updateSelectionCount();
+      });
+
+      wrapper.appendChild(btn);
     }
+    
+    body.appendChild(wrapper);
   }
 
   function toggleKeyword(kw) {
@@ -603,9 +535,9 @@
   function bindClusterControls() {
     // Search (re-bound each render since the input may be fresh)
     const searchInput = $('#search-input');
-    searchInput.addEventListener('input', () => {
-      state.searchTerm = searchInput.value.trim();
-      renderClusters();
+    $('#search-input').addEventListener('input', (e) => {
+      state.searchTerm = e.target.value.trim();
+      renderKeywords();
     });
   }
 
@@ -629,15 +561,43 @@
     $('#btn-start-immersive').addEventListener('click', async () => {
       if (state.selectedKeywords.size === 0) return;
 
-      const keywords = Array.from(state.selectedKeywords);
+      const keywords = state.selectedKeywords; // Set of strings
+      
+      // Find all movies that match these keywords
+      const matchingIds = await new Promise((resolve) => {
+        chrome.storage.local.get('imdb_lists', (data) => {
+          const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
+          const ids = new Set();
+          for (const list of lists) {
+            if (!list || !Array.isArray(list.movies)) continue;
+            for (const movie of list.movies) {
+              if (!movie || typeof movie !== 'object') continue;
+              if (Array.isArray(movie.keywords)) {
+                const hasMatch = movie.keywords.some(kw => keywords.has(String(kw).trim().toLowerCase()));
+                if (hasMatch) {
+                  const id = String(movie.imdb_id || '').trim();
+                  const key = id || `t:${movie.title}|${movie.year}`;
+                  ids.add(key);
+                }
+              }
+            }
+          }
+          resolve(Array.from(ids));
+        });
+      });
 
-      // Store selected keywords in session storage for the immersive page to pick up
+      if (matchingIds.length === 0) {
+        alert('No movies found matching these keywords.');
+        return;
+      }
+
+      // Store matching movie IDs in session storage for the immersive page to pick up
       try {
-        await chrome.storage.session.set({ ai_cluster_keywords: keywords });
+        await chrome.storage.session.set({ ai_cluster_movies: matchingIds });
       } catch {
         // Session storage unavailable — fall back to local storage with a cleanup flag
         await new Promise((resolve) => {
-          chrome.storage.local.set({ ai_cluster_keywords: keywords }, resolve);
+          chrome.storage.local.set({ ai_cluster_movies: matchingIds }, resolve);
         });
       }
 
@@ -653,9 +613,9 @@
         return;
       }
 
-      // Open immersive with AI keywords flag
+      // Open immersive with AI movies flag
       const url = chrome.runtime.getURL(
-        `src/immersive/immersive.html?scope=all&aiKeywords=1`
+        `src/immersive/immersive.html?scope=all&aiMovies=1`
       );
       chrome.tabs.create({ url });
     });

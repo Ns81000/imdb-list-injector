@@ -210,30 +210,36 @@
     }
     state.source = movies;
 
-    // If launched from the AI Clustering page, pre-populate keyword filters.
-    if (params.get('aiKeywords') === '1') {
+    // If launched from the AI Clustering page, strictly filter the base dataset
+    // to match the selected IDs without polluting the keyword filter panel.
+    if (params.get('aiMovies') === '1') {
       try {
-        const aiKw = await new Promise((resolve) => {
+        const aiMovies = await new Promise((resolve) => {
           try {
-            chrome.storage.session.get('ai_cluster_keywords', (data) => {
-              resolve((data && Array.isArray(data.ai_cluster_keywords)) ? data.ai_cluster_keywords : null);
+            chrome.storage.session.get('ai_cluster_movies', (data) => {
+              resolve((data && Array.isArray(data.ai_cluster_movies)) ? data.ai_cluster_movies : null);
             });
           } catch { resolve(null); }
         });
-        const keywords = aiKw || await new Promise((resolve) => {
-          chrome.storage.local.get('ai_cluster_keywords', (data) => {
-            resolve((data && Array.isArray(data.ai_cluster_keywords)) ? data.ai_cluster_keywords : []);
+        const targetIds = aiMovies || await new Promise((resolve) => {
+          chrome.storage.local.get('ai_cluster_movies', (data) => {
+            resolve((data && Array.isArray(data.ai_cluster_movies)) ? data.ai_cluster_movies : []);
           });
         });
-        if (keywords.length > 0) {
-          for (const kw of keywords) {
-            state.config.keywords.add(facetKey(kw));
-          }
+        
+        if (targetIds.length > 0) {
+          const targetSet = new Set(targetIds);
+          state.source = state.source.filter(m => {
+            const id = String(m.imdb_id || '').trim();
+            const key = id || `t:${m.title}|${m.year}`;
+            return targetSet.has(key);
+          });
         }
-        // Clean up the temporary key
-        try { chrome.storage.session.remove('ai_cluster_keywords'); } catch { /* noop */ }
-        try { chrome.storage.local.remove('ai_cluster_keywords'); } catch { /* noop */ }
-      } catch { /* non-critical — proceed without pre-selected keywords */ }
+        
+        // Clean up the temporary keys
+        try { chrome.storage.session.remove('ai_cluster_movies'); } catch { /* noop */ }
+        try { chrome.storage.local.remove('ai_cluster_movies'); } catch { /* noop */ }
+      } catch { /* non-critical — proceed with unfiltered dataset */ }
     }
 
     // Resolve the API key: session cache first, else decrypt via passphrase.
