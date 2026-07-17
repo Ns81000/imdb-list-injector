@@ -10,7 +10,8 @@
     "unlimitedStorage",
     "clipboardWrite",
     "downloads",
-    "sidePanel"
+    "sidePanel",
+    "declarativeNetRequestWithHostAccess"
   ],
 
   "content_security_policy": {

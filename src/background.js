@@ -21,15 +21,40 @@ function setupSidePanelBehavior() {
   });
 }
 
+function setupOllamaCorsBypass() {
+  if (!chrome.declarativeNetRequest) return;
+  chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [1],
+    addRules: [{
+      id: 1,
+      priority: 1,
+      action: {
+        type: "modifyHeaders",
+        requestHeaders: [
+          { header: "Origin", operation: "remove" },
+          { header: "Referer", operation: "remove" }
+        ]
+      },
+      condition: {
+        urlFilter: "http://localhost:11434/*",
+        resourceTypes: ["xmlhttprequest"]
+      }
+    }]
+  }).catch(() => {});
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   setupSidePanelBehavior();
+  setupOllamaCorsBypass();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   setupSidePanelBehavior();
+  setupOllamaCorsBypass();
 });
 
 setupSidePanelBehavior();
+setupOllamaCorsBypass();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FETCH_LIST') {
