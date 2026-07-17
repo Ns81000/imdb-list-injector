@@ -480,6 +480,9 @@
   function renderKeywords() {
     const body = $('#clusters-body');
     body.innerHTML = '';
+    
+    const countSpan = $('#total-keywords-count');
+    if (countSpan) countSpan.textContent = `(${state.orderedKeywords.length})`;
 
     const search = state.searchTerm.toLowerCase();
     

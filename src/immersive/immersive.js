@@ -422,7 +422,8 @@
     const keywordsContainer = el('keywords');
     if (keywordsGroup && keywordsContainer) {
       const allKeywords = state.source.flatMap((m) => m.keywords || []);
-      const keywordEntries = facetEntries(buildFacet(allKeywords, 'Unknown keyword'));
+      const keywordEntries = facetEntries(buildFacet(allKeywords, 'Unknown keyword'))
+        .filter(e => e.count >= 2);
       pruneSelection(state.config.keywords, keywordEntries);
 
       if (keywordEntries.length === 0) {

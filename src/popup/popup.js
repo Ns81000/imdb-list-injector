@@ -564,6 +564,72 @@
     });
   }
 
+  // --- Data Export Logic ---
+  
+  function triggerDownload(content, filename) {
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    chrome.downloads.download({ url, filename, saveAs: true }, () => {
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  const btnExportKeywords = $('#btn-export-keywords');
+  if (btnExportKeywords) {
+    btnExportKeywords.addEventListener('click', () => {
+      chrome.storage.local.get('imdb_lists', (data) => {
+        const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
+        const keywordCounts = new Map();
+        
+        for (const list of lists) {
+          if (!list || !Array.isArray(list.movies)) continue;
+          for (const movie of list.movies) {
+            if (!movie || !Array.isArray(movie.keywords)) continue;
+            for (const kw of movie.keywords) {
+              const clean = String(kw).trim().toLowerCase();
+              if (clean) keywordCounts.set(clean, (keywordCounts.get(clean) || 0) + 1);
+            }
+          }
+        }
+        
+        const sorted = Array.from(keywordCounts.entries())
+          .filter(([_, count]) => count >= 2)
+          .sort((a, b) => b[1] - a[1])
+          .map(([keyword, count]) => ({ keyword, count }));
+          
+        triggerDownload(JSON.stringify(sorted, null, 2), 'imdb_keywords.json');
+      });
+    });
+  }
+
+  const btnExportEmbeddings = $('#btn-export-embeddings');
+  if (btnExportEmbeddings) {
+    btnExportEmbeddings.addEventListener('click', () => {
+      const DB_NAME = 'ZoomOutEmbeddings';
+      const STORE_NAME = 'vectors';
+      const req = indexedDB.open(DB_NAME, 1);
+      
+      req.onerror = () => alert('Could not open embeddings database.');
+      req.onsuccess = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          alert('No embeddings found.');
+          db.close();
+          return;
+        }
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const getAll = store.getAll();
+        
+        getAll.onsuccess = () => {
+          triggerDownload(JSON.stringify(getAll.result, null, 2), 'imdb_embeddings.json');
+        };
+        getAll.onerror = () => alert('Failed to read embeddings.');
+        tx.oncomplete = () => db.close();
+      };
+    });
+  }
+
   // --- Field coercion (safety net for older saved lists) ---
   // Lists saved before the parser fix may hold a description (or other field)
   // as an IMDb rich-text OBJECT instead of a string. Coerce every field to a

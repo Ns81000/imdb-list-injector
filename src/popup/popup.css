@@ -861,3 +861,8 @@ select.input {
 .list-card:nth-child(5n + 4) .keyword-progress-bar { background: var(--brand-peach); }
 .list-card:nth-child(5n + 5) .keyword-progress-bar { background: var(--brand-ochre); }
 
+
+/* --- Data Export Actions --- */
+.export-actions { margin-top: 12px; flex-direction: column; gap: 8px; align-items: stretch; }
+.btn-export-data { padding: 10px; border-radius: var(--r-md); border: 1px solid var(--hairline); }
+
