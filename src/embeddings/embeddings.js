@@ -10,6 +10,10 @@
   'use strict';
 
   const $ = (s) => document.querySelector(s);
+  const params = new URLSearchParams(location.search);
+  const MODE = params.get('mode') === 'watched' ? 'watched' : 'watching';
+  const STORAGE_KEY = `imdb_lists_${MODE}`;
+  const CLUSTER_ORDER_KEY = `ai_cluster_order_${MODE}`;
   const MODEL_HINT = 'qwen3-embedding';   // prefix used for detection
   const MODEL_FALLBACK = 'qwen3-embedding:0.6b';
   const MIN_KEYWORD_OCCURRENCES = 2;
@@ -138,8 +142,8 @@
 
   function extractKeywords() {
     return new Promise((resolve) => {
-      chrome.storage.local.get('imdb_lists', (data) => {
-        const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
+      chrome.storage.local.get(STORAGE_KEY, (data) => {
+        const lists = Array.isArray(data[STORAGE_KEY]) ? data[STORAGE_KEY] : [];
         const counts = new Map();
         const kwMovies = new Map();
         const seenMovies = new Set();
@@ -184,7 +188,7 @@
 
   // ---- IndexedDB Embedding Cache -----------------------------------------
 
-  const DB_NAME = 'ZoomOutEmbeddings';
+  const DB_NAME = `ZoomOutEmbeddings_${MODE}`;
   const DB_VERSION = 1;
   const STORE_NAME = 'vectors';
 
@@ -333,9 +337,9 @@
       
       // Load cached order instantly
       const orderData = await new Promise((resolve) => {
-        chrome.storage.local.get('ai_cluster_order', resolve);
+        chrome.storage.local.get(CLUSTER_ORDER_KEY, resolve);
       });
-      state.orderedKeywords = orderData.ai_cluster_order || Array.from(cached.keys());
+      state.orderedKeywords = orderData[CLUSTER_ORDER_KEY] || Array.from(cached.keys());
       
       setTimeout(() => {
         renderSemanticFlow();
@@ -437,7 +441,7 @@
     
     // Cache the ordered array
     await new Promise((resolve) => {
-      chrome.storage.local.set({ ai_cluster_order: ordered }, resolve);
+      chrome.storage.local.set({ [CLUSTER_ORDER_KEY]: ordered }, resolve);
     });
 
     barEl.style.width = '100%';
@@ -641,8 +645,8 @@
       
       // Find all movies that match these keywords
       const matchingIds = await new Promise((resolve) => {
-        chrome.storage.local.get('imdb_lists', (data) => {
-          const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
+        chrome.storage.local.get(STORAGE_KEY, (data) => {
+          const lists = Array.isArray(data[STORAGE_KEY]) ? data[STORAGE_KEY] : [];
           const ids = new Set();
           for (const list of lists) {
             if (!list || !Array.isArray(list.movies)) continue;
@@ -691,7 +695,7 @@
 
       // Open immersive with AI movies flag
       const url = chrome.runtime.getURL(
-        `src/immersive/immersive.html?scope=all&aiMovies=1`
+        `src/immersive/immersive.html?scope=all&aiMovies=1&mode=${MODE}`
       );
       chrome.tabs.create({ url });
     });
@@ -759,10 +763,10 @@
       
       // Try to load cached order
       const orderData = await new Promise((resolve) => {
-        chrome.storage.local.get('ai_cluster_order', resolve);
+        chrome.storage.local.get(CLUSTER_ORDER_KEY, resolve);
       });
       
-      let cachedOrder = orderData.ai_cluster_order || [];
+      let cachedOrder = orderData[CLUSTER_ORDER_KEY] || [];
       // Filter out any obsolete keys from cached order
       cachedOrder = cachedOrder.filter(k => validEmbeddings.has(k));
       
@@ -778,7 +782,7 @@
         state.orderedKeywords = await sortSemantically(state.embeddings, state.keywordCounts);
         
         await new Promise((resolve) => {
-          chrome.storage.local.set({ ai_cluster_order: state.orderedKeywords }, resolve);
+          chrome.storage.local.set({ [CLUSTER_ORDER_KEY]: state.orderedKeywords }, resolve);
         });
       } else {
         state.orderedKeywords = cachedOrder;

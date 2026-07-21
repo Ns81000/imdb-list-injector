@@ -105,6 +105,60 @@ body {
   flex-shrink: 0;
 }
 
+/* --- Mode Tabs --- */
+
+.mode-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 16px 8px;
+  background: var(--canvas);
+  border-bottom: 1px solid var(--hairline);
+  flex-shrink: 0;
+}
+
+.mode-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 0;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--surface-soft);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.mode-tab:hover {
+  color: var(--body-c);
+  border-color: var(--muted-soft);
+}
+
+.mode-tab.active {
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--surface-card);
+  border-color: var(--ink);
+  box-shadow: 0 1px 3px rgba(10, 10, 10, 0.08);
+}
+
+.mode-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted-soft);
+  min-width: 14px;
+  text-align: center;
+}
+
+.mode-tab.active .mode-count {
+  color: var(--muted);
+}
+
 /* --- Buttons --- */
 
 .icon-btn {

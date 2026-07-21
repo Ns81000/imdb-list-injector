@@ -7,7 +7,13 @@
   let currentPreview = null;
   let currentUrl = '';
   let defaultFormat = 'csv';
+  let activeMode = 'watching';
   const pendingRequests = new Map();
+
+  function getStorageKey(mode) {
+    const m = mode || activeMode;
+    return m === 'watched' ? 'imdb_lists_watched' : 'imdb_lists_watching';
+  }
 
 
   // --- Navigation ---
@@ -32,13 +38,49 @@
   $('#btn-back-add').addEventListener('click', () => navigateTo('home'));
   $('#btn-back-prefs').addEventListener('click', () => navigateTo('home'));
 
+  // --- Mode Tabs ---
+
+  function updateTabUI() {
+    $$('.mode-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.mode === activeMode);
+    });
+  }
+
+  function updateTabCounts() {
+    chrome.storage.local.get(['imdb_lists_watching', 'imdb_lists_watched'], (data) => {
+      const wc = Array.isArray(data.imdb_lists_watching) ? data.imdb_lists_watching.length : 0;
+      const dc = Array.isArray(data.imdb_lists_watched) ? data.imdb_lists_watched.length : 0;
+      const watchingCount = $('#mode-count-watching');
+      const watchedCount = $('#mode-count-watched');
+      if (watchingCount) watchingCount.textContent = wc > 0 ? `(${wc})` : '';
+      if (watchedCount) watchedCount.textContent = dc > 0 ? `(${dc})` : '';
+    });
+  }
+
+  $$('.mode-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const newMode = tab.dataset.mode;
+      if (newMode === activeMode) return;
+      activeMode = newMode;
+      updateTabUI();
+      chrome.storage.local.get('imdb_prefs', (data) => {
+        const prefs = data.imdb_prefs || {};
+        prefs.activeMode = activeMode;
+        chrome.storage.local.set({ imdb_prefs: prefs });
+      });
+      renderLists();
+    });
+  });
+
   // --- Render Lists ---
 
   function renderLists() {
-    chrome.storage.local.get('imdb_lists', (data) => {
-      const lists = data.imdb_lists || [];
+    const sk = getStorageKey();
+    chrome.storage.local.get(sk, (data) => {
+      const lists = data[sk] || [];
       const container = $('#lists-container');
       const empty = $('#empty-state');
+      updateTabCounts();
 
       if (lists.length === 0) {
         container.innerHTML = '';
@@ -104,14 +146,14 @@
       container.querySelectorAll('.refresh-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          handleRefresh(btn.dataset.id, btn.dataset.url, btn);
+          handleRefresh(btn.dataset.id, btn.dataset.url, btn, sk);
         });
       });
 
       container.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          handleDelete(btn.dataset.id);
+          handleDelete(btn.dataset.id, sk);
         });
       });
 
@@ -164,13 +206,13 @@
 
       container.querySelectorAll('.kw-action-link.cancel').forEach(btn => {
         btn.addEventListener('click', () => {
-          chrome.runtime.sendMessage({ type: 'CANCEL_KEYWORD_FETCH', listId: btn.dataset.id });
+          chrome.runtime.sendMessage({ type: 'CANCEL_KEYWORD_FETCH', listId: btn.dataset.id, storageKey: sk });
         });
       });
 
       container.querySelectorAll('.kw-action-link.resume').forEach(btn => {
         btn.addEventListener('click', () => {
-          chrome.runtime.sendMessage({ type: 'START_KEYWORD_FETCH', listId: btn.dataset.id, force: false });
+          chrome.runtime.sendMessage({ type: 'START_KEYWORD_FETCH', listId: btn.dataset.id, force: false, storageKey: sk });
         });
       });
 
@@ -195,7 +237,7 @@
         showKeyStatus('Add your TMDB API key below to start Immersive mode.', 'error');
         return;
       }
-      const params = new URLSearchParams({ scope });
+      const params = new URLSearchParams({ scope, mode: activeMode });
       if (scope === 'list' && id) params.set('id', id);
       const url = chrome.runtime.getURL(`src/immersive/immersive.html?${params.toString()}`);
       chrome.tabs.create({ url });
@@ -205,8 +247,9 @@
   const btnImmersiveAll = $('#btn-immersive-all');
   if (btnImmersiveAll) {
     btnImmersiveAll.addEventListener('click', () => {
-      chrome.storage.local.get('imdb_lists', (data) => {
-        const lists = data.imdb_lists || [];
+      const sk = getStorageKey();
+      chrome.storage.local.get(sk, (data) => {
+        const lists = data[sk] || [];
         if (lists.length === 0) {
           showHomeStatus('No lists saved yet. Add a list first.', true);
           return;
@@ -219,7 +262,8 @@
   const btnAiCluster = $('#btn-ai-cluster');
   if (btnAiCluster) {
     btnAiCluster.addEventListener('click', () => {
-      const url = chrome.runtime.getURL('src/embeddings/embeddings.html');
+      const params = new URLSearchParams({ mode: activeMode });
+      const url = chrome.runtime.getURL(`src/embeddings/embeddings.html?${params.toString()}`);
       chrome.tabs.create({ url });
     });
   }
@@ -310,7 +354,7 @@
         setLoading(true);
         $('#fetch-btn').disabled = true;
 
-        chrome.runtime.sendMessage({ type: 'SAVE_LIST', listData }, (saveResponse) => {
+        chrome.runtime.sendMessage({ type: 'SAVE_LIST', listData, storageKey: getStorageKey() }, (saveResponse) => {
           setLoading(false);
           $('#fetch-btn').disabled = false;
 
@@ -332,9 +376,9 @@
 
   // --- Delete & Refresh ---
 
-  function handleDelete(listId) {
+  function handleDelete(listId, storageKey) {
     if (!confirm('Are you sure you want to delete this list?')) return;
-    chrome.runtime.sendMessage({ type: 'DELETE_LIST', listId }, (response) => {
+    chrome.runtime.sendMessage({ type: 'DELETE_LIST', listId, storageKey }, (response) => {
       if (chrome.runtime.lastError) {
         showHomeStatus(`Delete failed: ${chrome.runtime.lastError.message}`, true);
         return;
@@ -347,7 +391,7 @@
     });
   }
 
-  function handleRefresh(listId, url, btnEl) {
+  function handleRefresh(listId, url, btnEl, storageKey) {
     if (pendingRequests.has(listId)) return;
 
     pendingRequests.set(listId, true);
@@ -357,7 +401,7 @@
     const svg = btnEl.querySelector('svg');
     if (svg) svg.style.animation = 'spin 0.6s linear infinite';
 
-    chrome.runtime.sendMessage({ type: 'REFRESH_LIST', listId, url }, (response) => {
+    chrome.runtime.sendMessage({ type: 'REFRESH_LIST', listId, url, storageKey }, (response) => {
       pendingRequests.delete(listId);
       btnEl.style.opacity = '';
       btnEl.style.pointerEvents = '';
@@ -380,14 +424,15 @@
 
   $('#btn-export').addEventListener('click', async () => {
     try {
+      const sk = getStorageKey();
       const data = await new Promise(resolve => {
-        chrome.storage.local.get('imdb_lists', resolve);
+        chrome.storage.local.get(sk, resolve);
       });
-      const lists = Array.isArray(data?.imdb_lists) ? data.imdb_lists : [];
+      const lists = Array.isArray(data?.[sk]) ? data[sk] : [];
       const blob = new Blob([JSON.stringify(lists, null, 2)], { type: 'application/json' });
-      const filename = `imdb-lists-backup-${Date.now()}.json`;
+      const filename = `imdb-lists-${activeMode}-backup-${Date.now()}.json`;
       await startDownloadFast(blob, filename);
-      showHomeStatus(`Exported backup with ${lists.length} list${lists.length === 1 ? '' : 's'}.`);
+      showHomeStatus(`Exported ${activeMode} backup with ${lists.length} list${lists.length === 1 ? '' : 's'}.`);
     } catch (err) {
       showHomeStatus(`Export failed: ${err.message || 'unknown error'}.`, true);
     }
@@ -413,8 +458,6 @@
         if (parsed.length === 0) throw new Error('Backup is empty');
         if (parsed.length > 10000) throw new Error('Too many lists (max 10000)');
 
-        // Never trust the file: sanitize every field before it is stored or
-        // rendered. Drops entries that cannot be salvaged into a valid list.
         const imported = parsed
           .map(sanitizeImportedList)
           .filter(Boolean);
@@ -423,18 +466,17 @@
           throw new Error('No valid lists found in backup');
         }
 
-        // Import restores (replaces) the whole library. Confirm before wiping an
-        // existing library so a mis-clicked import can't silently destroy data.
+        const sk = getStorageKey();
         const existing = await new Promise((resolve) => {
-          chrome.storage.local.get('imdb_lists', (d) => resolve(Array.isArray(d?.imdb_lists) ? d.imdb_lists : []));
+          chrome.storage.local.get(sk, (d) => resolve(Array.isArray(d?.[sk]) ? d[sk] : []));
         });
         if (existing.length > 0 &&
-            !confirm(`This will replace your current ${existing.length} list${existing.length === 1 ? '' : 's'} with ${imported.length} from the backup. Continue?`)) {
+            !confirm(`This will replace your current ${existing.length} ${activeMode} list${existing.length === 1 ? '' : 's'} with ${imported.length} from the backup. Continue?`)) {
           return;
         }
 
         await new Promise((resolve, reject) => {
-          chrome.storage.local.set({ imdb_lists: imported }, () => {
+          chrome.storage.local.set({ [sk]: imported }, () => {
             if (chrome.runtime.lastError) {
               reject(chrome.runtime.lastError);
             } else {
@@ -446,7 +488,7 @@
         renderLists();
         const skipped = parsed.length - imported.length;
         const skipNote = skipped > 0 ? ` (${skipped} invalid skipped)` : '';
-        showHomeStatus(`Imported ${imported.length} list${imported.length === 1 ? '' : 's'} from backup${skipNote}.`);
+        showHomeStatus(`Imported ${imported.length} list${imported.length === 1 ? '' : 's'} into ${activeMode}${skipNote}.`);
       } catch (err) {
         showHomeStatus(`Import failed: ${err.message || 'invalid backup file'}.`, true);
       } finally {
@@ -577,8 +619,9 @@
   const btnExportKeywords = $('#btn-export-keywords');
   if (btnExportKeywords) {
     btnExportKeywords.addEventListener('click', () => {
-      chrome.storage.local.get('imdb_lists', (data) => {
-        const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
+      const sk = getStorageKey();
+      chrome.storage.local.get(sk, (data) => {
+        const lists = Array.isArray(data[sk]) ? data[sk] : [];
         const keywordCounts = new Map();
         
         for (const list of lists) {
@@ -597,7 +640,7 @@
           .sort((a, b) => b[1] - a[1])
           .map(([keyword, count]) => ({ keyword, count }));
           
-        triggerDownload(JSON.stringify(sorted, null, 2), 'imdb_keywords.json');
+        triggerDownload(JSON.stringify(sorted, null, 2), `imdb_keywords_${activeMode}.json`);
       });
     });
   }
@@ -605,11 +648,12 @@
   const btnExportEmbeddings = $('#btn-export-embeddings');
   if (btnExportEmbeddings) {
     btnExportEmbeddings.addEventListener('click', () => {
-      const DB_NAME = 'ZoomOutEmbeddings';
+      const DB_NAME = `ZoomOutEmbeddings_${activeMode}`;
       const STORE_NAME = 'vectors';
       const req = indexedDB.open(DB_NAME, 1);
       
       req.onerror = () => alert('Could not open embeddings database.');
+      req.onupgradeneeded = (e) => { e.target.result.close(); alert('No embeddings found for this mode.'); };
       req.onsuccess = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE_NAME)) {
@@ -622,7 +666,7 @@
         const getAll = store.getAll();
         
         getAll.onsuccess = () => {
-          triggerDownload(JSON.stringify(getAll.result, null, 2), 'imdb_embeddings.json');
+          triggerDownload(JSON.stringify(getAll.result, null, 2), `imdb_embeddings_${activeMode}.json`);
         };
         getAll.onerror = () => alert('Failed to read embeddings.');
         tx.oncomplete = () => db.close();
@@ -1098,40 +1142,60 @@
   }
 
   // --- One-time storage migration ---
-  // Older saved lists may store a field (notably description) as an IMDb
-  // rich-text OBJECT. Rewrite those to clean strings in place so every surface
-  // (list, export, backup) is correct without needing a re-fetch. Runs once per
-  // load; only writes back when something actually changed.
+  // Migrates data from the old `imdb_lists` key to `imdb_lists_watching`.
+  // Also fixes object-typed fields on both mode keys.
   const MOVIE_FIELDS = [
     'position', 'imdb_id', 'type', 'title', 'year', 'rating',
     'votes', 'genre', 'content_rating', 'duration', 'description', 'imdb_url'
   ];
 
-  function migrateStoredLists() {
-    chrome.storage.local.get('imdb_lists', (data) => {
-      if (chrome.runtime.lastError) return;
-      const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
-      let changed = false;
-
-      for (const list of lists) {
-        if (!list || !Array.isArray(list.movies)) continue;
-        for (const m of list.movies) {
-          if (!m || typeof m !== 'object') continue;
-          for (const key of MOVIE_FIELDS) {
-            const cleanVal = m[key] == null ? '' : String(m[key]).trim().toLowerCase();
-            if (cleanVal.includes('[object object]')) {
-              m[key] = '';
-              changed = true;
-            } else if (m[key] != null && typeof m[key] === 'object') {
-              m[key] = key === 'description' ? extractText(m[key]) : scalarField(m[key]);
-              changed = true;
-            }
+  function fixObjectFields(lists) {
+    let changed = false;
+    for (const list of lists) {
+      if (!list || !Array.isArray(list.movies)) continue;
+      for (const m of list.movies) {
+        if (!m || typeof m !== 'object') continue;
+        for (const key of MOVIE_FIELDS) {
+          const cleanVal = m[key] == null ? '' : String(m[key]).trim().toLowerCase();
+          if (cleanVal.includes('[object object]')) {
+            m[key] = '';
+            changed = true;
+          } else if (m[key] != null && typeof m[key] === 'object') {
+            m[key] = key === 'description' ? extractText(m[key]) : scalarField(m[key]);
+            changed = true;
           }
         }
       }
+    }
+    return changed;
+  }
 
-      if (changed) {
-        chrome.storage.local.set({ imdb_lists: lists }, () => {
+  function migrateStoredLists() {
+    chrome.storage.local.get(['imdb_lists', 'imdb_lists_watching', 'imdb_lists_watched'], (data) => {
+      if (chrome.runtime.lastError) return;
+
+      const oldLists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
+      let watchingLists = Array.isArray(data.imdb_lists_watching) ? data.imdb_lists_watching : [];
+      const watchedLists = Array.isArray(data.imdb_lists_watched) ? data.imdb_lists_watched : [];
+      const updates = {};
+
+      // Migrate old imdb_lists -> imdb_lists_watching (one-time)
+      if (oldLists.length > 0 && watchingLists.length === 0) {
+        watchingLists = oldLists;
+        updates.imdb_lists_watching = watchingLists;
+        updates.imdb_lists = [];  // clear old key
+      }
+
+      // Fix object-typed fields in both mode keys
+      if (fixObjectFields(watchingLists)) {
+        updates.imdb_lists_watching = watchingLists;
+      }
+      if (fixObjectFields(watchedLists)) {
+        updates.imdb_lists_watched = watchedLists;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        chrome.storage.local.set(updates, () => {
           if (!chrome.runtime.lastError) renderLists();
         });
       }
@@ -1149,7 +1213,7 @@
     }
     // Show immediate optimistic feedback
     showKeywordProgress(list.id, 'running', 0, force ? list.movies.length : missing, '', 'Starting...');
-    chrome.runtime.sendMessage({ type: 'START_KEYWORD_FETCH', listId: list.id, force }, (response) => {
+    chrome.runtime.sendMessage({ type: 'START_KEYWORD_FETCH', listId: list.id, force, storageKey: getStorageKey() }, (response) => {
       // Update with authoritative count from background (unwrap nested status)
       if (response && response.success && response.status) {
         const s = response.status;
@@ -1228,6 +1292,12 @@
 
   // --- Init ---
 
-  migrateStoredLists();
-  renderLists();
+  // Restore persisted mode, then migrate and render
+  chrome.storage.local.get('imdb_prefs', (data) => {
+    const prefs = data.imdb_prefs || {};
+    if (prefs.activeMode === 'watched') activeMode = 'watched';
+    updateTabUI();
+    migrateStoredLists();
+    renderLists();
+  });
 })();

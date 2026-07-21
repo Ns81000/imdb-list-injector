@@ -14,6 +14,8 @@
   const params = new URLSearchParams(location.search);
   const SCOPE = params.get('scope') === 'all' ? 'all' : 'list';
   const LIST_ID = params.get('id') || '';
+  const MODE = params.get('mode') === 'watched' ? 'watched' : 'watching';
+  const STORAGE_KEY = `imdb_lists_${MODE}`;
 
   const CONCURRENCY = 6;
 
@@ -259,9 +261,9 @@
 
   function loadMovies() {
     return new Promise((resolve, reject) => {
-      chrome.storage.local.get('imdb_lists', (data) => {
+      chrome.storage.local.get(STORAGE_KEY, (data) => {
         if (chrome.runtime.lastError) { reject(chrome.runtime.lastError); return; }
-        const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
+        const lists = Array.isArray(data[STORAGE_KEY]) ? data[STORAGE_KEY] : [];
         if (SCOPE === 'list') {
           const list = lists.find((l) => l && l.id === LIST_ID);
           if (!list) { resolve([]); return; }
