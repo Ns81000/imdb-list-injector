@@ -646,19 +646,21 @@
   if (btnExportEmbeddings) {
     btnExportEmbeddings.addEventListener('click', () => {
       const DB_NAME = 'ZoomOutEmbeddings';
-      const STORE_NAME = 'vectors';
       const req = indexedDB.open(DB_NAME, 1);
       
       req.onerror = () => alert('Could not open embeddings database.');
       req.onsuccess = () => {
         const db = req.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          alert('No embeddings found.');
+        const storeName = db.objectStoreNames.contains('embeddings')
+          ? 'embeddings'
+          : (db.objectStoreNames.contains('vectors') ? 'vectors' : null);
+        if (!storeName) {
+          alert('No embeddings found in database.');
           db.close();
           return;
         }
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
         const getAll = store.getAll();
         
         getAll.onsuccess = () => {

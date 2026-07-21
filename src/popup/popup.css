@@ -54,6 +54,7 @@
 
 body {
   width: 100%;
+  min-width: 400px;
   min-height: 100vh;
   overflow: hidden;
   background: var(--canvas);
@@ -82,27 +83,29 @@ body {
 .header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 10px 14px;
   background: var(--canvas);
   border-bottom: 1px solid var(--hairline);
   flex-shrink: 0;
 }
 
-.header-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--ink);
-  letter-spacing: -0.3px;
-  white-space: nowrap;
-}
-
 .header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex: 1;
+  gap: 8px;
+  flex-shrink: 0;
   min-width: 0;
+}
+
+.header-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .mode-toggle {
@@ -119,7 +122,7 @@ body {
   font-family: var(--font);
   font-size: 11px;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 4px 9px;
   border-radius: var(--r-pill);
   border: none;
   background: transparent;
@@ -142,7 +145,7 @@ body {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
@@ -152,11 +155,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   background: var(--surface-soft);
   border: 1px solid var(--hairline);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--muted);
   cursor: pointer;
   flex-shrink: 0;
@@ -173,8 +176,6 @@ body {
   outline-offset: 1px;
 }
 
-/* Hover treatments stay in the Clay voice: ink border + ink glyph.
-   Only destructive actions pick up coral. */
 .icon-btn.refresh-btn:hover {
   border-color: var(--ink);
   color: var(--ink);
@@ -200,14 +201,14 @@ body {
 }
 
 .btn-primary-sm {
-  height: 44px;
-  padding: 0 20px;
+  height: 36px;
+  padding: 0 14px;
   background: var(--primary);
   color: var(--on-primary);
   border: none;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
