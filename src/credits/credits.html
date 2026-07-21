@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="credits.css">
+  <title>Credits Analysis — Zoom Out</title>
+</head>
+<body>
+  <header class="credits-header">
+    <div class="credits-header-inner">
+      <div class="credits-header-left">
+        <h1 class="credits-title">Credits Analysis</h1>
+        <span id="credits-scope" class="credits-scope"></span>
+      </div>
+      <div class="credits-header-actions">
+        <button id="btn-export-credits" class="credits-btn-action" title="Export credits as JSON">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 2v9M4.5 7.5L8 11l3.5-3.5"/>
+            <path d="M2 12v1.5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V12"/>
+          </svg>
+          Export
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="credits-main" class="credits-main">
+    <div id="credits-loading" class="credits-loading">
+      <div class="credits-spinner"></div>
+      <p>Loading credits data…</p>
+    </div>
+    <div id="credits-empty" class="credits-empty hidden">
+      <p>No credits data found.</p>
+      <p class="credits-empty-hint">Go back and click "Credits" on a list to scrape credits first.</p>
+    </div>
+    <div id="credits-content" class="credits-content hidden"></div>
+  </main>
+
+  <script src="../lib/crypto.js"></script>
+  <script src="../lib/tmdb.js"></script>
+  <script src="credits.js"></script>
+</body>
+</html>

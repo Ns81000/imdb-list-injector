@@ -204,5 +204,54 @@
     return images;
   }
 
-  globalThis.ImmersiveTmdb = { resolve, validateKey, imageUrl, fetchBackdrops };
+  // --- Person search (for credits feature) --------------------------------
+
+  const personCache = makeCache('imdb_tmdb_person_cache', 8000);
+
+  async function searchPerson(name, key, signal) {
+    if (!name || !key) return { name, profileUrl: null, tmdbId: null };
+
+    const cacheKey = name.toLowerCase().trim();
+    const cached = await personCache.get(cacheKey);
+    if (cached) return cached;
+
+    const auth = authFor(key);
+    const url = `${API_BASE}/search/person?query=${encodeURIComponent(name)}&language=en-US${auth.query}`;
+    const res = await fetch(url, { headers: auth.headers, signal });
+
+    if (res.status === 429) {
+      const retryAfter = Number(res.headers.get('Retry-After')) || 1;
+      const err = new Error('rate-limited');
+      err.retryAfter = retryAfter;
+      err.rateLimited = true;
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error(`TMDB ${res.status}`);
+      err.status = res.status;
+      err.authFailed = res.status === 401 || res.status === 403;
+      throw err;
+    }
+
+    const json = await res.json();
+    const results = json.results || [];
+    const match = results[0];
+
+    let data;
+    if (!match) {
+      data = { name, profileUrl: null, tmdbId: null };
+    } else {
+      data = {
+        name,
+        tmdbId: match.id,
+        profileUrl: match.profile_path ? imageUrl(match.profile_path, 'w185') : null,
+        knownFor: match.known_for_department || ''
+      };
+    }
+
+    await personCache.put(cacheKey, data);
+    return data;
+  }
+
+  globalThis.ImmersiveTmdb = { resolve, validateKey, imageUrl, fetchBackdrops, searchPerson };
 })();

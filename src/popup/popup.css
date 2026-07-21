@@ -915,8 +915,88 @@ select.input {
 .list-card:nth-child(5n + 4) .keyword-progress-bar { background: var(--brand-peach); }
 .list-card:nth-child(5n + 5) .keyword-progress-bar { background: var(--brand-ochre); }
 
+/* --- Credits Progress Bar --- */
+.credits-progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--surface-soft);
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  transition: all 0.2s ease-out;
+}
+
+.credits-progress-bar {
+  height: 100%;
+  background: var(--brand-teal);
+  border-radius: var(--r-pill);
+  width: 0%;
+  transition: width 0.2s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.credits-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: progress-shimmer 1.5s infinite;
+}
+
+.cr-action-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.15s;
+}
+
+.cr-action-link.cancel {
+  color: var(--muted);
+}
+
+.cr-action-link.cancel:hover {
+  color: var(--ink);
+}
+
+.cr-action-link.resume {
+  color: var(--brand-teal);
+}
+
+.cr-action-link.resume:hover {
+  color: var(--primary-active);
+}
+
+/* Clay accent cycle for credits progress bar */
+.list-card:nth-child(5n + 1) .credits-progress-bar { background: var(--brand-pink); }
+.list-card:nth-child(5n + 2) .credits-progress-bar { background: var(--brand-teal); }
+.list-card:nth-child(5n + 3) .credits-progress-bar { background: var(--brand-lavender); }
+.list-card:nth-child(5n + 4) .credits-progress-bar { background: var(--brand-peach); }
+.list-card:nth-child(5n + 5) .credits-progress-bar { background: var(--brand-ochre); }
+
+/* Credits header button */
+.icon-btn#btn-credits-all:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--surface-card);
+}
+
 
 /* --- Data Export Actions --- */
 .export-actions { margin-top: 12px; flex-direction: column; gap: 8px; align-items: stretch; }
 .btn-export-data { padding: 10px; border-radius: var(--r-md); border: 1px solid var(--hairline); }
-

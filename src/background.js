@@ -1,6 +1,7 @@
 // src/background.js
 
 importScripts('parser.js');
+importScripts('credits-parser.js');
 
 // --- Storage Write Lock ---
 // Serialises every read-modify-write on chrome.storage so that concurrent
@@ -119,6 +120,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'GET_KEYWORD_FETCH_STATUS') {
     const status = getKeywordFetchStatus(message.listId);
+    sendResponse({ success: true, ...status });
+    return true;
+  }
+
+  if (message.type === 'START_CREDITS_FETCH') {
+    startCreditsFetch(message.listId, message.force, resolveStorageKey(message.storageKey))
+      .then(status => sendResponse({ success: true, status }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.type === 'CANCEL_CREDITS_FETCH') {
+    cancelCreditsFetch(message.listId);
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === 'GET_CREDITS_FETCH_STATUS') {
+    const status = getCreditsFetchStatus(message.listId);
     sendResponse({ success: true, ...status });
     return true;
   }
@@ -312,6 +332,7 @@ async function saveList(listData, storageKey = DEFAULT_STORAGE_KEY) {
 
 async function deleteList(listId, storageKey = DEFAULT_STORAGE_KEY) {
   cancelKeywordFetch(listId);
+  cancelCreditsFetch(listId);
   return withStorageLock(async () => {
     const stored = await getStoredLists(storageKey);
     const updated = stored.filter(l => l.id !== listId);
@@ -321,25 +342,37 @@ async function deleteList(listId, storageKey = DEFAULT_STORAGE_KEY) {
 
 async function refreshList(listId, url, storageKey = DEFAULT_STORAGE_KEY) {
   cancelKeywordFetch(listId);
+  cancelCreditsFetch(listId);
   // Network fetch runs concurrently — only the storage write step is locked.
   const result = await fetchAndParseList(url);
   await withStorageLock(async () => {
     const stored = await getStoredLists(storageKey);
     const idx = stored.findIndex(l => l.id === listId);
     if (idx >= 0) {
-      // Map old keywords by imdb_id
+      // Map old keywords and credits by imdb_id
       const oldKeywordsMap = new Map();
+      const oldCreditsMap = new Map();
       if (Array.isArray(stored[idx].movies)) {
         for (const m of stored[idx].movies) {
-          if (m && m.imdb_id && Array.isArray(m.keywords)) {
-            oldKeywordsMap.set(m.imdb_id, m.keywords);
+          if (m && m.imdb_id) {
+            if (Array.isArray(m.keywords)) {
+              oldKeywordsMap.set(m.imdb_id, m.keywords);
+            }
+            if (m.credits && typeof m.credits === 'object') {
+              oldCreditsMap.set(m.imdb_id, m.credits);
+            }
           }
         }
       }
-      // Merge keywords into new movies list
+      // Merge keywords and credits into new movies list
       for (const m of result.movies) {
-        if (m && m.imdb_id && oldKeywordsMap.has(m.imdb_id)) {
-          m.keywords = oldKeywordsMap.get(m.imdb_id);
+        if (m && m.imdb_id) {
+          if (oldKeywordsMap.has(m.imdb_id)) {
+            m.keywords = oldKeywordsMap.get(m.imdb_id);
+          }
+          if (oldCreditsMap.has(m.imdb_id)) {
+            m.credits = oldCreditsMap.get(m.imdb_id);
+          }
         }
       }
       stored[idx].movies = result.movies;
@@ -571,4 +604,204 @@ async function fetchKeywordsForTitle(imdbId, signal) {
   }
 
   return parseIMDBKeywords(html);
+}
+
+// --- Credits Scraping Queue Manager ---
+const activeCreditsQueues = new Map();
+
+function getCreditsFetchStatus(listId) {
+  const queue = activeCreditsQueues.get(listId);
+  if (!queue) return { status: 'idle' };
+  return {
+    status: queue.status,
+    fetchedCount: queue.fetchedCount,
+    totalCount: queue.totalCount,
+    errorMsg: queue.errorMsg,
+    lastFetchedTitle: queue.lastFetchedTitle
+  };
+}
+
+function broadcastCreditsProgress(queue) {
+  chrome.runtime.sendMessage({
+    type: 'CREDITS_FETCH_PROGRESS',
+    listId: queue.listId,
+    status: queue.status,
+    fetchedCount: queue.fetchedCount,
+    totalCount: queue.totalCount,
+    errorMsg: queue.errorMsg,
+    lastFetchedTitle: queue.lastFetchedTitle
+  }).catch(() => {});
+}
+
+async function saveCreditsBatchProgress(listId, batch, storageKey = DEFAULT_STORAGE_KEY) {
+  if (batch.length === 0) return;
+  const batchMap = new Map(batch.map(item => [item.imdb_id, item.credits]));
+  await withStorageLock(async () => {
+    const stored = await getStoredLists(storageKey);
+    const list = stored.find(l => l.id === listId);
+    if (list && Array.isArray(list.movies)) {
+      for (const m of list.movies) {
+        if (batchMap.has(m.imdb_id)) {
+          m.credits = batchMap.get(m.imdb_id);
+        }
+      }
+      await chrome.storage.local.set({ [storageKey]: stored });
+    }
+  });
+}
+
+function cancelCreditsFetch(listId) {
+  const queue = activeCreditsQueues.get(listId);
+  if (queue) {
+    queue.status = 'cancelled';
+    queue.abortController.abort();
+    saveCreditsBatchProgress(listId, queue.saveBuffer, queue.storageKey).catch(() => {});
+    broadcastCreditsProgress(queue);
+    activeCreditsQueues.delete(listId);
+  }
+}
+
+async function startCreditsFetch(listId, force = false, storageKey = DEFAULT_STORAGE_KEY) {
+  if (activeCreditsQueues.has(listId)) {
+    return getCreditsFetchStatus(listId);
+  }
+
+  const stored = await getStoredLists(storageKey);
+  const list = stored.find(l => l.id === listId);
+  if (!list) {
+    throw new Error('List not found');
+  }
+
+  let moviesToFetch = [];
+  if (force) {
+    await withStorageLock(async () => {
+      const latestStored = await getStoredLists(storageKey);
+      const latestList = latestStored.find(l => l.id === listId);
+      if (latestList && Array.isArray(latestList.movies)) {
+        for (const m of latestList.movies) {
+          delete m.credits;
+        }
+        await chrome.storage.local.set({ [storageKey]: latestStored });
+      }
+    });
+    const freshStored = await getStoredLists(storageKey);
+    const freshList = freshStored.find(l => l.id === listId);
+    moviesToFetch = (freshList && Array.isArray(freshList.movies)) ? [...freshList.movies] : [];
+  } else {
+    moviesToFetch = (Array.isArray(list.movies) ? list.movies : []).filter(
+      m => !m.credits || typeof m.credits !== 'object'
+    );
+  }
+
+  if (moviesToFetch.length === 0) {
+    return { status: 'complete', fetchedCount: 0, totalCount: 0 };
+  }
+
+  const abortController = new AbortController();
+  const queue = {
+    listId,
+    storageKey,
+    moviesToFetch: [...moviesToFetch],
+    fetchedCount: 0,
+    totalCount: moviesToFetch.length,
+    abortController,
+    status: 'running',
+    errorMsg: '',
+    lastFetchedTitle: '',
+    saveBuffer: []
+  };
+
+  activeCreditsQueues.set(listId, queue);
+
+  (async () => {
+    try {
+      while (queue.status === 'running' && queue.moviesToFetch.length > 0) {
+        const movie = queue.moviesToFetch[0];
+        queue.lastFetchedTitle = movie.title || '';
+        broadcastCreditsProgress(queue);
+
+        let credits = { Director: [], Writers: [], Producers: [], Cast: [] };
+        try {
+          credits = await fetchCreditsForTitle(movie.imdb_id, queue.abortController.signal);
+        } catch (err) {
+          if (queue.abortController.signal.aborted) {
+            break;
+          }
+          queue.status = 'error';
+          queue.errorMsg = err.message || 'Error fetching credits';
+          broadcastCreditsProgress(queue);
+          break;
+        }
+
+        movie.credits = credits;
+        queue.saveBuffer.push({ imdb_id: movie.imdb_id, credits });
+        queue.moviesToFetch.shift();
+        queue.fetchedCount++;
+
+        if (queue.saveBuffer.length >= 10 || queue.moviesToFetch.length === 0) {
+          await saveCreditsBatchProgress(listId, queue.saveBuffer, storageKey);
+          queue.saveBuffer = [];
+        }
+
+        if (queue.moviesToFetch.length === 0) {
+          queue.status = 'complete';
+          broadcastCreditsProgress(queue);
+          activeCreditsQueues.delete(listId);
+          break;
+        }
+
+        const delay = 800 + Math.random() * 700;
+        await new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(resolve, delay);
+          queue.abortController.signal.addEventListener('abort', () => {
+            clearTimeout(timeoutId);
+            reject(new DOMException('Aborted', 'AbortError'));
+          }, { once: true });
+        }).catch(() => {});
+
+        if (queue.abortController.signal.aborted) {
+          break;
+        }
+      }
+    } catch (loopErr) {
+      queue.status = 'error';
+      queue.errorMsg = loopErr.message || 'Loop error';
+      broadcastCreditsProgress(queue);
+    }
+  })();
+
+  return {
+    status: queue.status,
+    fetchedCount: queue.fetchedCount,
+    totalCount: queue.totalCount
+  };
+}
+
+async function fetchCreditsForTitle(imdbId, signal) {
+  const url = `https://www.imdb.com/title/${imdbId}/fullcredits/`;
+  const response = await fetch(url, {
+    signal,
+    credentials: 'include',
+    headers: {
+      'Accept': 'text/html,application/xhtml+xml',
+      'Accept-Language': 'en-US,en;q=0.9'
+    }
+  });
+
+  if (!response.ok) {
+    if (response.status === 403 || response.status === 429) {
+      throw new Error('IMDb verification check triggered. Open imdb.com in a new browser tab, verify you are not a robot, and try again.');
+    }
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const html = await response.text();
+  if (!html || html.length === 0) {
+    throw new Error('Empty response from IMDb');
+  }
+  if (isBotChallenge(html)) {
+    throw new Error('IMDb returned a bot-check page. Open imdb.com in a browser tab, verify you are not a robot, then try again.');
+  }
+
+  return parseIMDbFullCredits(html);
 }

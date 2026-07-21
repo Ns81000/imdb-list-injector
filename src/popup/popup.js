@@ -118,6 +118,7 @@
               <button class="list-action-btn copy-btn" data-idx="${idx}" title="Copy formatted list">Copy</button>
               <button class="list-action-btn download-btn" data-idx="${idx}" title="Download formatted list">Download</button>
               <button class="list-action-btn keywords-btn" data-id="${escapeHtml(list.id)}" data-idx="${idx}" title="Fetch keywords">Keywords</button>
+              <button class="list-action-btn credits-btn" data-id="${escapeHtml(list.id)}" data-idx="${idx}" title="Fetch credits">Credits</button>
             </div>
             <button class="list-action-btn immersive-btn" data-id="${escapeHtml(list.id)}" title="Immersive mode">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -138,6 +139,19 @@
             <div class="keyword-progress-actions" id="kw-actions-${escapeHtml(list.id)}">
               <button class="kw-action-link cancel" data-id="${escapeHtml(list.id)}">Cancel</button>
               <button class="kw-action-link resume hidden" data-id="${escapeHtml(list.id)}">Resume</button>
+            </div>
+          </div>
+          <div class="credits-progress-container hidden" id="cr-progress-${escapeHtml(list.id)}">
+            <div class="keyword-progress-header">
+              <span class="keyword-progress-status" id="cr-status-${escapeHtml(list.id)}">Preparing...</span>
+              <span class="keyword-progress-count" id="cr-count-${escapeHtml(list.id)}">0/0</span>
+            </div>
+            <div class="keyword-progress-bar-bg">
+              <div class="credits-progress-bar" id="cr-bar-${escapeHtml(list.id)}"></div>
+            </div>
+            <div class="keyword-progress-actions" id="cr-actions-${escapeHtml(list.id)}">
+              <button class="cr-action-link cancel" data-id="${escapeHtml(list.id)}">Cancel</button>
+              <button class="cr-action-link resume hidden" data-id="${escapeHtml(list.id)}">Resume</button>
             </div>
           </div>
         </div>
@@ -216,11 +230,37 @@
         });
       });
 
+      container.querySelectorAll('.credits-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.dataset.idx);
+          const list = lists[idx];
+          if (!list) return;
+          handleCreditsFetchClick(list);
+        });
+      });
+
+      container.querySelectorAll('.cr-action-link.cancel').forEach(btn => {
+        btn.addEventListener('click', () => {
+          chrome.runtime.sendMessage({ type: 'CANCEL_CREDITS_FETCH', listId: btn.dataset.id, storageKey: sk });
+        });
+      });
+
+      container.querySelectorAll('.cr-action-link.resume').forEach(btn => {
+        btn.addEventListener('click', () => {
+          chrome.runtime.sendMessage({ type: 'START_CREDITS_FETCH', listId: btn.dataset.id, force: false, storageKey: sk });
+        });
+      });
+
       // Restore active keyword fetch status on render
       lists.forEach(list => {
         chrome.runtime.sendMessage({ type: 'GET_KEYWORD_FETCH_STATUS', listId: list.id }, (response) => {
           if (response && response.status && response.status !== 'idle') {
             showKeywordProgress(list.id, response.status, response.fetchedCount, response.totalCount, response.errorMsg, response.lastFetchedTitle);
+          }
+        });
+        chrome.runtime.sendMessage({ type: 'GET_CREDITS_FETCH_STATUS', listId: list.id }, (response) => {
+          if (response && response.status && response.status !== 'idle') {
+            showCreditsProgress(list.id, response.status, response.fetchedCount, response.totalCount, response.errorMsg, response.lastFetchedTitle);
           }
         });
       });
@@ -265,6 +305,28 @@
       const params = new URLSearchParams({ mode: activeMode });
       const url = chrome.runtime.getURL(`src/embeddings/embeddings.html?${params.toString()}`);
       chrome.tabs.create({ url });
+    });
+  }
+
+  function openCreditsPage(scope, id) {
+    const params = new URLSearchParams({ scope, mode: activeMode });
+    if (scope === 'list' && id) params.set('id', id);
+    const url = chrome.runtime.getURL(`src/credits/credits.html?${params.toString()}`);
+    chrome.tabs.create({ url });
+  }
+
+  const btnCreditsAll = $('#btn-credits-all');
+  if (btnCreditsAll) {
+    btnCreditsAll.addEventListener('click', () => {
+      const sk = getStorageKey();
+      chrome.storage.local.get(sk, (data) => {
+        const lists = data[sk] || [];
+        if (lists.length === 0) {
+          showHomeStatus('No lists saved yet. Add a list first.', true);
+          return;
+        }
+        openCreditsPage('all');
+      });
     });
   }
 
@@ -957,8 +1019,22 @@
       duration:       str(m.duration, 40),
       description:    desc,
       imdb_url:       str(m.imdb_url, 500),
-      keywords:       keywords
+      keywords:       keywords,
+      credits:        sanitizeCredits(m.credits)
     };
+  }
+
+  function sanitizeCredits(credits) {
+    if (!credits || typeof credits !== 'object') return undefined;
+    const valid = {};
+    for (const role of ['Director', 'Writers', 'Producers', 'Cast']) {
+      if (Array.isArray(credits[role])) {
+        valid[role] = credits[role].map(n => str(n, 200).trim()).filter(Boolean);
+      } else {
+        valid[role] = [];
+      }
+    }
+    return valid;
   }
 
   // Coerce an untrusted list object from an imported backup. Returns null when
@@ -1289,6 +1365,127 @@
       );
     }
   });
+
+  // --- Credits Fetch Controller ---
+  const _crHideTimers = new Map();
+
+  function handleCreditsFetchClick(list) {
+    const missing = list.movies.filter(m => !m.credits || typeof m.credits !== 'object').length;
+    if (missing === 0) {
+      openCreditsPage('list', list.id);
+      return;
+    }
+    showCreditsProgress(list.id, 'running', 0, missing, '', 'Starting...');
+    chrome.runtime.sendMessage({ type: 'START_CREDITS_FETCH', listId: list.id, force: false, storageKey: getStorageKey() }, (response) => {
+      if (response && response.success && response.status) {
+        const s = response.status;
+        showCreditsProgress(list.id, 'running', s.fetchedCount || 0, s.totalCount || 0, '', 'Starting...');
+      }
+    });
+  }
+
+  function showCreditsProgress(listId, status, fetchedCount, totalCount, errorMsg, lastFetchedTitle) {
+    const container = $(`#cr-progress-${listId}`);
+    const statusText = $(`#cr-status-${listId}`);
+    const countText = $(`#cr-count-${listId}`);
+    const bar = $(`#cr-bar-${listId}`);
+    const cancelBtn = container ? container.querySelector('.cr-action-link.cancel') : null;
+    const resumeBtn = container ? container.querySelector('.cr-action-link.resume') : null;
+
+    if (!container || !statusText || !countText || !bar) return;
+
+    if (_crHideTimers.has(listId)) {
+      clearTimeout(_crHideTimers.get(listId));
+      _crHideTimers.delete(listId);
+    }
+
+    container.classList.remove('hidden');
+    statusText.style.color = '';
+
+    const pct = totalCount > 0 ? Math.round((fetchedCount / totalCount) * 100) : 0;
+    bar.style.width = `${pct}%`;
+    countText.textContent = `${fetchedCount}/${totalCount}`;
+
+    if (status === 'running') {
+      statusText.textContent = lastFetchedTitle ? `Scraping: "${lastFetchedTitle}"` : 'Scraping credits...';
+      if (cancelBtn) cancelBtn.classList.remove('hidden');
+      if (resumeBtn) resumeBtn.classList.add('hidden');
+    } else if (status === 'complete') {
+      statusText.textContent = 'Credits successfully saved!';
+      if (cancelBtn) cancelBtn.classList.add('hidden');
+      if (resumeBtn) resumeBtn.classList.add('hidden');
+
+      const timer = setTimeout(() => {
+        container.classList.add('hidden');
+        renderLists();
+      }, 3000);
+      _crHideTimers.set(listId, timer);
+    } else if (status === 'error') {
+      statusText.textContent = errorMsg || 'Error fetching credits.';
+      statusText.style.color = 'var(--error)';
+      if (cancelBtn) cancelBtn.classList.remove('hidden');
+      if (resumeBtn) resumeBtn.classList.remove('hidden');
+    } else if (status === 'cancelled') {
+      statusText.textContent = 'Cancelled.';
+      if (cancelBtn) cancelBtn.classList.add('hidden');
+      if (resumeBtn) resumeBtn.classList.add('hidden');
+
+      const timer = setTimeout(() => {
+        container.classList.add('hidden');
+        renderLists();
+      }, 2000);
+      _crHideTimers.set(listId, timer);
+    }
+  }
+
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'CREDITS_FETCH_PROGRESS') {
+      showCreditsProgress(
+        message.listId,
+        message.status,
+        message.fetchedCount,
+        message.totalCount,
+        message.errorMsg,
+        message.lastFetchedTitle
+      );
+    }
+  });
+
+  // --- Credits Export ---
+
+  const btnExportCredits = $('#btn-export-credits');
+  if (btnExportCredits) {
+    btnExportCredits.addEventListener('click', () => {
+      const sk = getStorageKey();
+      chrome.storage.local.get(sk, (data) => {
+        const lists = Array.isArray(data[sk]) ? data[sk] : [];
+        const creditsCounts = { Director: new Map(), Writers: new Map(), Producers: new Map(), Cast: new Map() };
+
+        for (const list of lists) {
+          if (!list || !Array.isArray(list.movies)) continue;
+          for (const movie of list.movies) {
+            if (!movie || !movie.credits || typeof movie.credits !== 'object') continue;
+            for (const [role, names] of Object.entries(movie.credits)) {
+              if (!creditsCounts[role] || !Array.isArray(names)) continue;
+              for (const name of names) {
+                const clean = String(name).trim();
+                if (clean) creditsCounts[role].set(clean, (creditsCounts[role].get(clean) || 0) + 1);
+              }
+            }
+          }
+        }
+
+        const sorted = {};
+        for (const [role, map] of Object.entries(creditsCounts)) {
+          sorted[role] = Array.from(map.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([name, count]) => ({ name, count }));
+        }
+
+        triggerDownload(JSON.stringify(sorted, null, 2), `imdb_credits_${activeMode}.json`);
+      });
+    });
+  }
 
   // --- Init ---
 
