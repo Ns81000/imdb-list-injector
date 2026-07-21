@@ -11,7 +11,13 @@
   <!-- VIEW: HOME -->
   <div id="view-home" class="view active">
     <header class="header">
-      <h1 class="header-title">Zoom Out</h1>
+      <div class="header-left">
+        <h1 class="header-title">Zoom Out</h1>
+        <div class="mode-toggle" id="mode-toggle" title="Switch between Watching and Watched lists">
+          <button id="mode-btn-watching" class="mode-btn active" data-mode="watching">Watching</button>
+          <button id="mode-btn-watched" class="mode-btn" data-mode="watched">Watched</button>
+        </div>
+      </div>
       <div class="header-actions">
         <button id="btn-immersive-all" class="icon-btn" title="Immersive — all lists">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -143,6 +149,7 @@
   </div>
 
   <script src="../lib/crypto.js"></script>
+  <script src="../lib/storage.js"></script>
   <script src="../lib/tmdb.js"></script>
   <script src="popup.js"></script>
 </body>
