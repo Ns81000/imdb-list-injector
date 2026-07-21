@@ -1,6 +1,6 @@
 // src/background.js
 
-importScripts('lib/storage.js', 'parser.js');
+importScripts('parser.js');
 
 // --- Storage Write Lock ---
 // Serialises every read-modify-write on chrome.storage so that concurrent
@@ -46,18 +46,15 @@ function setupOllamaCorsBypass() {
 chrome.runtime.onInstalled.addListener(() => {
   setupSidePanelBehavior();
   setupOllamaCorsBypass();
-  StorageHelper.migrateLegacyDataIfNeeded();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   setupSidePanelBehavior();
   setupOllamaCorsBypass();
-  StorageHelper.migrateLegacyDataIfNeeded();
 });
 
 setupSidePanelBehavior();
 setupOllamaCorsBypass();
-StorageHelper.migrateLegacyDataIfNeeded();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FETCH_LIST') {
@@ -68,41 +65,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'GET_LISTS') {
-    (async () => {
-      try {
-        const mode = message.mode || await StorageHelper.getActiveMode();
-        const lists = await getStoredLists(mode);
-        sendResponse({ lists, mode });
-      } catch (err) {
-        sendResponse({ lists: [], error: err.message });
+    chrome.storage.local.get('imdb_lists', (data) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ lists: [], error: chrome.runtime.lastError.message });
+      } else {
+        sendResponse({ lists: data.imdb_lists || [] });
       }
-    })();
+    });
     return true;
   }
 
   if (message.type === 'SAVE_LIST') {
-    saveList(message.listData, message.mode)
+    saveList(message.listData)
       .then(() => sendResponse({ success: true }))
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
 
   if (message.type === 'DELETE_LIST') {
-    deleteList(message.listId, message.mode)
+    deleteList(message.listId)
       .then(() => sendResponse({ success: true }))
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
 
   if (message.type === 'REFRESH_LIST') {
-    refreshList(message.listId, message.url, message.mode)
+    refreshList(message.listId, message.url)
       .then(result => sendResponse({ success: true, data: result }))
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
 
   if (message.type === 'START_KEYWORD_FETCH') {
-    startKeywordFetch(message.listId, message.force, message.mode)
+    startKeywordFetch(message.listId, message.force)
       .then(status => sendResponse({ success: true, status }))
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
@@ -283,14 +278,12 @@ function mergeMovies(existing, incoming) {
   return merged;
 }
 
-async function saveList(listData, mode = null) {
+async function saveList(listData) {
   if (!listData || typeof listData !== 'object') {
     throw new Error('Invalid list data');
   }
-  const targetMode = mode || await StorageHelper.getActiveMode();
-  const key = StorageHelper.getStorageKey('imdb_lists', targetMode);
   return withStorageLock(async () => {
-    const stored = await getStoredLists(targetMode);
+    const stored = await getStoredLists();
     if (stored.length >= 10000 && !stored.some(l => l.id === listData.id)) {
       throw new Error('Maximum lists reached (10000)');
     }
@@ -301,7 +294,7 @@ async function saveList(listData, mode = null) {
       stored.push(listData);
     }
     return new Promise((resolve, reject) => {
-      chrome.storage.local.set({ [key]: stored }, () => {
+      chrome.storage.local.set({ imdb_lists: stored }, () => {
         if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
         else resolve();
       });
@@ -309,25 +302,21 @@ async function saveList(listData, mode = null) {
   });
 }
 
-async function deleteList(listId, mode = null) {
+async function deleteList(listId) {
   cancelKeywordFetch(listId);
-  const targetMode = mode || await StorageHelper.getActiveMode();
-  const key = StorageHelper.getStorageKey('imdb_lists', targetMode);
   return withStorageLock(async () => {
-    const stored = await getStoredLists(targetMode);
+    const stored = await getStoredLists();
     const updated = stored.filter(l => l.id !== listId);
-    return chrome.storage.local.set({ [key]: updated });
+    return chrome.storage.local.set({ imdb_lists: updated });
   });
 }
 
-async function refreshList(listId, url, mode = null) {
+async function refreshList(listId, url) {
   cancelKeywordFetch(listId);
-  const targetMode = mode || await StorageHelper.getActiveMode();
-  const key = StorageHelper.getStorageKey('imdb_lists', targetMode);
   // Network fetch runs concurrently — only the storage write step is locked.
   const result = await fetchAndParseList(url);
   await withStorageLock(async () => {
-    const stored = await getStoredLists(targetMode);
+    const stored = await getStoredLists();
     const idx = stored.findIndex(l => l.id === listId);
     if (idx >= 0) {
       // Map old keywords by imdb_id
@@ -350,21 +339,19 @@ async function refreshList(listId, url, mode = null) {
       stored[idx].movieCount = result.movies.length;
       // Pick up a renamed list, but never clobber a good name with a blank one.
       if (result.listName) stored[idx].name = String(result.listName).slice(0, 500);
-      await chrome.storage.local.set({ [key]: stored });
+      await chrome.storage.local.set({ imdb_lists: stored });
     }
   });
   return result;
 }
 
-function getStoredLists(mode = null) {
-  return new Promise(async (resolve, reject) => {
-    const targetMode = mode || await StorageHelper.getActiveMode();
-    const key = StorageHelper.getStorageKey('imdb_lists', targetMode);
-    chrome.storage.local.get(key, data => {
+function getStoredLists() {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get('imdb_lists', data => {
       if (chrome.runtime.lastError) {
         reject(chrome.runtime.lastError);
       } else {
-        const lists = data[key] || [];
+        const lists = data.imdb_lists || [];
         resolve(Array.isArray(lists) ? lists : []);
       }
     });
@@ -400,13 +387,11 @@ function broadcastProgress(queue) {
   });
 }
 
-async function saveBatchProgress(listId, batch, mode = null) {
+async function saveBatchProgress(listId, batch) {
   if (batch.length === 0) return;
-  const targetMode = mode || await StorageHelper.getActiveMode();
-  const key = StorageHelper.getStorageKey('imdb_lists', targetMode);
   const batchMap = new Map(batch.map(item => [item.imdb_id, item.keywords]));
   await withStorageLock(async () => {
-    const stored = await getStoredLists(targetMode);
+    const stored = await getStoredLists();
     const list = stored.find(l => l.id === listId);
     if (list && Array.isArray(list.movies)) {
       for (const m of list.movies) {
@@ -414,7 +399,7 @@ async function saveBatchProgress(listId, batch, mode = null) {
           m.keywords = batchMap.get(m.imdb_id);
         }
       }
-      await chrome.storage.local.set({ [key]: stored });
+      await chrome.storage.local.set({ imdb_lists: stored });
     }
   });
 }
@@ -425,20 +410,18 @@ function cancelKeywordFetch(listId) {
     queue.status = 'cancelled';
     queue.abortController.abort();
     // Save any pending progress
-    saveBatchProgress(listId, queue.saveBuffer, queue.mode).catch(() => {});
+    saveBatchProgress(listId, queue.saveBuffer).catch(() => {});
     broadcastProgress(queue);
     activeKeywordQueues.delete(listId);
   }
 }
 
-async function startKeywordFetch(listId, force = false, mode = null) {
+async function startKeywordFetch(listId, force = false) {
   if (activeKeywordQueues.has(listId)) {
     return getKeywordFetchStatus(listId);
   }
-  const targetMode = mode || await StorageHelper.getActiveMode();
-  const key = StorageHelper.getStorageKey('imdb_lists', targetMode);
 
-  const stored = await getStoredLists(targetMode);
+  const stored = await getStoredLists();
   const list = stored.find(l => l.id === listId);
   if (!list) {
     throw new Error('List not found');
@@ -447,17 +430,17 @@ async function startKeywordFetch(listId, force = false, mode = null) {
   let moviesToFetch = [];
   if (force) {
     await withStorageLock(async () => {
-      const latestStored = await getStoredLists(targetMode);
+      const latestStored = await getStoredLists();
       const latestList = latestStored.find(l => l.id === listId);
       if (latestList && Array.isArray(latestList.movies)) {
         for (const m of latestList.movies) {
           delete m.keywords;
         }
-        await chrome.storage.local.set({ [key]: latestStored });
+        await chrome.storage.local.set({ imdb_lists: latestStored });
       }
     });
     // Re-read after clearing to get the authoritative movie list
-    const freshStored = await getStoredLists(targetMode);
+    const freshStored = await getStoredLists();
     const freshList = freshStored.find(l => l.id === listId);
     moviesToFetch = (freshList && Array.isArray(freshList.movies)) ? [...freshList.movies] : [];
   } else {
@@ -473,7 +456,6 @@ async function startKeywordFetch(listId, force = false, mode = null) {
   const abortController = new AbortController();
   const queue = {
     listId,
-    mode: targetMode,
     moviesToFetch: [...moviesToFetch],
     fetchedCount: 0,
     totalCount: moviesToFetch.length,
@@ -514,7 +496,7 @@ async function startKeywordFetch(listId, force = false, mode = null) {
 
         // Periodic batch save
         if (queue.saveBuffer.length >= 10 || queue.moviesToFetch.length === 0) {
-          await saveBatchProgress(listId, queue.saveBuffer, queue.mode);
+          await saveBatchProgress(listId, queue.saveBuffer);
           queue.saveBuffer = [];
         }
 

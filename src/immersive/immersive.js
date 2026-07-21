@@ -196,12 +196,7 @@
 
   // ---- Boot --------------------------------------------------------------
 
-  let currentMode = 'watching';
-
   async function boot() {
-    const paramMode = params.get('mode');
-    currentMode = paramMode ? StorageHelper.normalizeMode(paramMode) : await StorageHelper.getActiveMode();
-
     let movies;
     try {
       movies = await loadMovies();
@@ -219,17 +214,16 @@
     // to match the selected IDs without polluting the keyword filter panel.
     if (params.get('aiMovies') === '1') {
       try {
-        const aiMoviesKey = StorageHelper.getStorageKey('ai_cluster_movies', currentMode);
         const aiMovies = await new Promise((resolve) => {
           try {
-            chrome.storage.session.get(aiMoviesKey, (data) => {
-              resolve((data && Array.isArray(data[aiMoviesKey])) ? data[aiMoviesKey] : null);
+            chrome.storage.session.get('ai_cluster_movies', (data) => {
+              resolve((data && Array.isArray(data.ai_cluster_movies)) ? data.ai_cluster_movies : null);
             });
           } catch { resolve(null); }
         });
         const targetIds = aiMovies || await new Promise((resolve) => {
-          chrome.storage.local.get(aiMoviesKey, (data) => {
-            resolve((data && Array.isArray(data[aiMoviesKey])) ? data[aiMoviesKey] : []);
+          chrome.storage.local.get('ai_cluster_movies', (data) => {
+            resolve((data && Array.isArray(data.ai_cluster_movies)) ? data.ai_cluster_movies : []);
           });
         });
         
@@ -243,8 +237,8 @@
         }
         
         // Clean up the temporary keys
-        try { chrome.storage.session.remove(aiMoviesKey); } catch { /* noop */ }
-        try { chrome.storage.local.remove(aiMoviesKey); } catch { /* noop */ }
+        try { chrome.storage.session.remove('ai_cluster_movies'); } catch { /* noop */ }
+        try { chrome.storage.local.remove('ai_cluster_movies'); } catch { /* noop */ }
       } catch { /* non-critical — proceed with unfiltered dataset */ }
     }
 
@@ -265,10 +259,9 @@
 
   function loadMovies() {
     return new Promise((resolve, reject) => {
-      const key = StorageHelper.getStorageKey('imdb_lists', currentMode);
-      chrome.storage.local.get(key, (data) => {
+      chrome.storage.local.get('imdb_lists', (data) => {
         if (chrome.runtime.lastError) { reject(chrome.runtime.lastError); return; }
-        const lists = Array.isArray(data[key]) ? data[key] : [];
+        const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
         if (SCOPE === 'list') {
           const list = lists.find((l) => l && l.id === LIST_ID);
           if (!list) { resolve([]); return; }

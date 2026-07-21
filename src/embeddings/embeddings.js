@@ -29,8 +29,6 @@
     searchTerm: ''
   };
 
-  let currentMode = 'watching';
-
   // ---- Stage switching ---------------------------------------------------
 
   function showStage(id) {
@@ -50,230 +48,266 @@
 
     dot.className = 'status-dot pulsing';
     label.textContent = 'Checking…';
+    sub.textContent = 'Looking for a local Ollama instance…';
+
+    hideSetupCards();
 
     try {
-      const resp = await new Promise((resolve) => {
+      const response = await new Promise((resolve) => {
         chrome.runtime.sendMessage({ type: 'OLLAMA_TAGS' }, resolve);
       });
 
-      if (!resp || !resp.success || !resp.data || !Array.isArray(resp.data.models)) {
-        throw new Error(resp?.error || 'Ollama not responding');
-      }
+      if (!response || !response.success) throw new Error(response?.error || 'No response');
 
-      const models = resp.data.models.map((m) => m.name || m.model || '');
-      const match = models.find((m) => m.toLowerCase().includes(MODEL_HINT));
+      const data = response.data;
+      const models = Array.isArray(data.models) ? data.models : [];
+      const match = models.find((m) =>
+        (m.name && m.name.startsWith(MODEL_HINT)) ||
+        (m.model && m.model.startsWith(MODEL_HINT))
+      );
 
       if (match) {
-        state.detectedModel = match;
-      } else if (models.length > 0) {
-        state.detectedModel = models[0];
+        // Store the exact name Ollama knows this model by
+        state.detectedModel = match.model || match.name || MODEL_FALLBACK;
+
+        dot.className = 'status-dot connected';
+        label.textContent = 'Connected';
+        sub.textContent = `Model: ${state.detectedModel}`;
+        $('#setup-ready').classList.remove('hidden');
+
+        clearInterval(statusRetryTimer);
+        statusRetryTimer = null;
+
+        // Auto-proceed after a brief moment
+        setTimeout(() => startSync(), 800);
       } else {
-        throw new Error('No models found in Ollama');
+        dot.className = 'status-dot offline';
+        label.textContent = 'Model missing';
+        sub.textContent = 'Ollama is running but the embedding model needs to be installed.';
+        $('#setup-model').classList.remove('hidden');
       }
-
-      dot.className = 'status-dot online';
-      label.textContent = 'Ollama Ready';
-      sub.textContent = `Using model: ${state.detectedModel}`;
-      return true;
-
-    } catch (err) {
+    } catch {
       dot.className = 'status-dot offline';
-      label.textContent = 'Ollama Offline';
-      sub.textContent = 'Make sure Ollama is running locally at http://localhost:11434 with CORS enabled.';
-
-      showStage('#stage-status');
-      const statusTitle = document.querySelector('#stage-status .panel-title');
-      const statusSub = document.querySelector('#stage-status #status-sub');
-
-      if (statusTitle) statusTitle.textContent = 'Ollama connection failed';
-      if (statusSub) statusSub.textContent = err.message || 'Ollama is not responding.';
-
-      $('#sync-status').classList.add('sync-error');
-      $('#btn-sync-retry').classList.remove('hidden');
-      return false;
+      label.textContent = 'Offline';
+      sub.textContent = 'Could not connect to a local Ollama instance.';
+      $('#setup-offline').classList.remove('hidden');
     }
   }
 
-  // ---- IndexedDB Helper (ZoomOutEmbeddings) ------------------------------
+  function hideSetupCards() {
+    $('#setup-offline').classList.add('hidden');
+    $('#setup-model').classList.add('hidden');
+    $('#setup-ready').classList.add('hidden');
+  }
 
-  const ZoomOutDB = {
-    DB_NAME: 'ZoomOutEmbeddings',
-    STORE: 'embeddings',
-    VERSION: 1,
+  // Bind manual retry buttons
+  document.querySelectorAll('.btn-retry-status').forEach(btn => {
+    btn.addEventListener('click', checkOllamaStatus);
+  });
 
-    open() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open(this.DB_NAME, this.VERSION);
-        req.onupgradeneeded = (e) => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains(this.STORE)) {
-            db.createObjectStore(this.STORE, { keyPath: 'keyword' });
-          }
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-    },
+  // ---- Copy Command Button -----------------------------------------------
 
-    async getAll() {
-      const db = await this.open();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(this.STORE, 'readonly');
-        const req = tx.objectStore(this.STORE).getAll();
-        req.onsuccess = () => {
-          const map = new Map();
-          for (const item of req.result || []) {
-            map.set(item.keyword, item.vector);
-          }
-          resolve(map);
-        };
-        req.onerror = () => reject(req.error);
-      });
-    },
-
-    async getMany(keywords) {
-      const db = await this.open();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(this.STORE, 'readonly');
-        const store = tx.objectStore(this.STORE);
-        const map = new Map();
-        let count = 0;
-        if (keywords.length === 0) return resolve(map);
-
-        for (const kw of keywords) {
-          const req = store.get(kw);
-          req.onsuccess = () => {
-            if (req.result) map.set(req.result.keyword, req.result.vector);
-            count++;
-            if (count === keywords.length) resolve(map);
-          };
-          req.onerror = () => {
-            count++;
-            if (count === keywords.length) resolve(map);
-          };
-        }
-      });
-    },
-
-    async putMany(items) {
-      if (items.length === 0) return;
-      const db = await this.open();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(this.STORE, 'readwrite');
-        const store = tx.objectStore(this.STORE);
-        for (const { keyword, vector } of items) {
-          store.put({ keyword, vector, updatedAt: Date.now() });
-        }
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    },
-
-    async deleteMany(keywords) {
-      if (keywords.length === 0) return;
-      const db = await this.open();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(this.STORE, 'readwrite');
-        const store = tx.objectStore(this.STORE);
-        for (const kw of keywords) store.delete(kw);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-  };
+  document.querySelectorAll('.btn-copy-cmd').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const codeBlock = e.currentTarget.closest('.code-block');
+      const textEl = codeBlock.querySelector('.pull-command-text');
+      if (!textEl) return;
+      
+      const text = textEl.textContent;
+      const originalHTML = btn.innerHTML;
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+        btn.title = 'Copied!';
+        setTimeout(() => { 
+          btn.innerHTML = originalHTML;
+          btn.title = 'Copy to clipboard'; 
+        }, 2000);
+      } catch {
+        // Fallback: select the text
+        const range = document.createRange();
+        range.selectNodeContents(textEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    });
+  });
 
   // ---- Keyword Extraction ------------------------------------------------
 
   function extractKeywords() {
     return new Promise((resolve) => {
-      const key = StorageHelper.getStorageKey('imdb_lists', currentMode);
-      chrome.storage.local.get(key, (data) => {
-        const lists = Array.isArray(data[key]) ? data[key] : [];
+      chrome.storage.local.get('imdb_lists', (data) => {
+        const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
         const counts = new Map();
         const kwMovies = new Map();
         const seenMovies = new Set();
+        let totalUnique = 0;
 
         for (const list of lists) {
           if (!list || !Array.isArray(list.movies)) continue;
           for (const movie of list.movies) {
             if (!movie || typeof movie !== 'object') continue;
             const id = String(movie.imdb_id || '').trim();
-            const movieKey = id || `t:${movie.title}|${movie.year}`;
-            if (seenMovies.has(movieKey)) continue;
-            seenMovies.add(movieKey);
+            const key = id || `t:${movie.title}|${movie.year}`;
+            if (seenMovies.has(key)) continue;
+            seenMovies.add(key);
 
             if (!Array.isArray(movie.keywords)) continue;
             for (const kw of movie.keywords) {
               const clean = String(kw).trim().toLowerCase();
               if (!clean) continue;
+              if (!counts.has(clean)) totalUnique++;
               counts.set(clean, (counts.get(clean) || 0) + 1);
-
               if (!kwMovies.has(clean)) kwMovies.set(clean, new Set());
-              kwMovies.get(clean).add(movieKey);
+              kwMovies.get(clean).add(key);
             }
           }
         }
 
+        state.keywordCounts = counts;
+        state.keywordToMovies = kwMovies;
+
+        // Filter by minimum occurrences
         const filtered = new Map();
-        for (const [kw, c] of counts.entries()) {
-          if (c >= MIN_KEYWORD_OCCURRENCES) {
-            filtered.set(kw, c);
+        for (const [kw, count] of counts) {
+          if (count >= MIN_KEYWORD_OCCURRENCES) {
+            filtered.set(kw, count);
           }
         }
 
-        state.keywordToMovies = kwMovies;
-        resolve({ keywordCounts: filtered });
+        resolve({ filtered, totalUnique });
       });
     });
   }
 
-  // ---- Embedding Generation (Ollama API Proxy) ---------------------------
+  // ---- IndexedDB Embedding Cache -----------------------------------------
 
-  async function fetchEmbeddingsBatch(keywords) {
-    const resp = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({
-        type: 'OLLAMA_EMBED',
-        model: state.detectedModel,
-        input: keywords
-      }, resolve);
+  const DB_NAME = 'ZoomOutEmbeddings';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'vectors';
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'keyword' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
     });
-
-    if (!resp || !resp.success) {
-      throw new Error(resp?.error || 'Failed to fetch embeddings from Ollama');
-    }
-
-    const embeddings = resp.data.embeddings;
-    if (!Array.isArray(embeddings) || embeddings.length !== keywords.length) {
-      throw new Error('Mismatched embedding response length from Ollama');
-    }
-
-    const resultMap = new Map();
-    for (let i = 0; i < keywords.length; i++) {
-      resultMap.set(keywords[i], new Float32Array(embeddings[i]));
-    }
-    return resultMap;
   }
 
-  // ---- Embedding Sync Workflow -------------------------------------------
+  async function loadCachedEmbeddings() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const map = new Map();
+        for (const entry of req.result) {
+          if (entry.keyword && entry.vector) {
+            map.set(entry.keyword, new Float32Array(entry.vector));
+          }
+        }
+        resolve(map);
+      };
+      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => db.close();
+    });
+  }
 
-  async function syncEmbeddings(keywordCounts) {
+  async function saveBatchEmbeddings(entries) {
+    if (entries.length === 0) return;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      for (const { keyword, vector } of entries) {
+        store.put({ keyword, vector: Array.from(vector), timestamp: Date.now() });
+      }
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+  }
+
+  async function deleteObsoleteEmbeddings(obsoleteKeys) {
+    if (obsoleteKeys.length === 0) return;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      for (const key of obsoleteKeys) {
+        store.delete(key);
+      }
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+  }
+
+  // ---- Ollama Embedding Client -------------------------------------------
+
+  async function fetchEmbeddingsBatch(keywords) {
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { type: 'OLLAMA_EMBED', model: state.detectedModel, input: keywords },
+        resolve
+      );
+    });
+
+    if (!response || !response.success) {
+      throw new Error(`Ollama API error: ${response?.error || 'No response'}`);
+    }
+
+    const embeddings = response.data.embeddings;
+
+    if (!Array.isArray(embeddings) || embeddings.length !== keywords.length) {
+      throw new Error('Ollama returned unexpected embedding count');
+    }
+
+    const result = new Map();
+    for (let i = 0; i < keywords.length; i++) {
+      result.set(keywords[i], new Float32Array(embeddings[i]));
+    }
+    return result;
+  }
+
+  // ---- Incremental Sync Engine -------------------------------------------
+
+  async function startSync() {
+    showStage('#stage-sync');
+
     const statusEl = $('#sync-status');
-    const statsEl = $('#sync-stats');
     const barEl = $('#sync-bar');
+    const statsEl = $('#sync-stats');
 
-    $('#btn-sync-retry').classList.add('hidden');
-    statusEl.classList.remove('sync-error');
-    statusEl.textContent = 'Connecting to Ollama…';
-    barEl.style.width = '5%';
+    statusEl.textContent = 'Extracting keywords from your lists…';
+    barEl.style.width = '0%';
+    statsEl.textContent = '';
 
-    // 1. Check Ollama server
-    const ready = await checkOllamaStatus();
-    if (!ready) return;
+    // 1. Extract keywords
+    const extraction = await extractKeywords();
+    const keywordCounts = extraction.filtered;
+    state.keywordCounts = keywordCounts;
+
+    if (keywordCounts.size === 0) {
+      showStage('#stage-empty');
+      return;
+    }
+
+    const dropped = extraction.totalUnique - keywordCounts.size;
+    statusEl.textContent = `Found ${keywordCounts.size} recurring keywords (skipped ${dropped} single-use). Loading cache…`;
+    barEl.style.width = '10%';
 
     // 2. Load cache
     let cached;
     try {
-      cached = await ZoomOutDB.getAll();
+      cached = await loadCachedEmbeddings();
     } catch {
       cached = new Map();
     }
@@ -282,27 +316,27 @@
     const currentKeys = new Set(keywordCounts.keys());
     const newKeywords = [];
     const obsoleteKeywords = [];
-
+    
     for (const kw of currentKeys) {
       if (!cached.has(kw)) newKeywords.push(kw);
     }
     for (const kw of cached.keys()) {
       if (!currentKeys.has(kw)) obsoleteKeywords.push(kw);
     }
-
-    // If zero changes, instantly return!
+    
+    // If absolutely zero changes, instantly return!
     if (newKeywords.length === 0 && obsoleteKeywords.length === 0) {
       statusEl.textContent = 'Database is completely up to date!';
       barEl.style.width = '100%';
       statsEl.textContent = 'No additions or deletions found.';
       state.embeddings = cached;
-
-      const orderKey = StorageHelper.getStorageKey('ai_cluster_order', currentMode);
+      
+      // Load cached order instantly
       const orderData = await new Promise((resolve) => {
-        chrome.storage.local.get(orderKey, resolve);
+        chrome.storage.local.get('ai_cluster_order', resolve);
       });
-      state.orderedKeywords = orderData[orderKey] || Array.from(cached.keys());
-
+      state.orderedKeywords = orderData.ai_cluster_order || Array.from(cached.keys());
+      
       setTimeout(() => {
         renderSemanticFlow();
         showStage('#stage-clusters');
@@ -315,9 +349,13 @@
       statusEl.textContent = `Cleaning ${obsoleteKeywords.length} obsolete embeddings…`;
       barEl.style.width = '15%';
       try {
-        await ZoomOutDB.deleteMany(obsoleteKeywords);
+        await deleteObsoleteEmbeddings(obsoleteKeywords);
       } catch { /* non-critical */ }
-      for (const kw of obsoleteKeywords) cached.delete(kw);
+      
+      // Remove obsolete from local cache map
+      for (const kw of obsoleteKeywords) {
+        cached.delete(kw);
+      }
     }
 
     // 5. Fetch new embeddings in batches
@@ -327,14 +365,17 @@
       const totalBatches = Math.ceil(newKeywords.length / BATCH_SIZE);
       let completedBatches = 0;
 
+      // Probe: send a single keyword first to verify the API works and let
+      // Ollama load the model into memory before we hit it with full batches.
       try {
-        statusEl.textContent = `Loading model ${state.detectedModel}…`;
+        statusEl.textContent = `Loading model ${state.detectedModel}… (first call may take a moment)`;
         const probe = await fetchEmbeddingsBatch([newKeywords[0]]);
         const probeVec = probe.get(newKeywords[0]);
         if (probeVec) {
           cached.set(newKeywords[0], probeVec);
-          await ZoomOutDB.putMany([{ keyword: newKeywords[0], vector: probeVec }]);
+          await saveBatchEmbeddings([{ keyword: newKeywords[0], vector: probeVec }]);
         }
+        // Remove the probed keyword from the remaining list
         newKeywords.shift();
       } catch (err) {
         lastError = err.message || String(err);
@@ -343,6 +384,10 @@
         statsEl.textContent = 'The model could not produce embeddings. Check Ollama logs.';
         $('#btn-sync-retry').classList.remove('hidden');
         return;
+      }
+
+      if (newKeywords.length > 0) {
+        statusEl.textContent = `Fetching embeddings for ${newKeywords.length} remaining keywords…`;
       }
 
       for (let i = 0; i < newKeywords.length; i += BATCH_SIZE) {
@@ -354,22 +399,24 @@
             cached.set(kw, vec);
             toSave.push({ keyword: kw, vector: vec });
           }
-          await ZoomOutDB.putMany(toSave);
+          await saveBatchEmbeddings(toSave);
         } catch (err) {
           lastError = err.message || String(err);
           statusEl.textContent = `Embedding error: ${lastError}`;
           statusEl.classList.add('sync-error');
-          statsEl.textContent = `Embedded ${cached.size} keywords so far.`;
+          statsEl.textContent = `Embedded ${cached.size} keywords so far. Will cluster what we have.`;
+          // Continue with what we have
           break;
         }
 
         completedBatches++;
         const pct = 15 + Math.round((completedBatches / totalBatches) * 75);
         barEl.style.width = `${pct}%`;
-        statsEl.textContent = `${cached.size} keywords embedded`;
+        statsEl.textContent = `${cached.size} / ${cached.size + newKeywords.length - Math.min(i + BATCH_SIZE, newKeywords.length)} keywords embedded`;
       }
     }
 
+    // 6. Guard: if no embeddings at all, stay on sync screen with error
     if (cached.size === 0) {
       barEl.style.width = '100%';
       statusEl.textContent = lastError ? `Embedding failed: ${lastError}` : 'Could not generate any embeddings.';
@@ -383,19 +430,21 @@
     statusEl.textContent = 'Sorting Keywords...';
     statsEl.textContent = 'Computing semantic alignment map...';
 
+    // 7. Store and sort semantically
     state.embeddings = cached;
     const ordered = await sortSemantically(cached, state.keywordCounts);
     state.orderedKeywords = ordered;
-
-    const orderKeySave = StorageHelper.getStorageKey('ai_cluster_order', currentMode);
+    
+    // Cache the ordered array
     await new Promise((resolve) => {
-      chrome.storage.local.set({ [orderKeySave]: ordered }, resolve);
+      chrome.storage.local.set({ ai_cluster_order: ordered }, resolve);
     });
 
     barEl.style.width = '100%';
     statusEl.textContent = `Aligned ${cached.size} keywords by similarity.`;
     statsEl.textContent = '';
 
+    // 8. Switch to cluster view
     setTimeout(() => {
       renderSemanticFlow();
       showStage('#stage-clusters');
@@ -405,6 +454,7 @@
   // ---- Semantic Sorting (1D Alignment) -----------------------------------
 
   function cosineSimilarity(a, b) {
+    // Vectors from Ollama are L2-normalized, so dot product = cosine sim.
     let dot = 0;
     for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
     return dot;
@@ -415,11 +465,14 @@
     const n = keywords.length;
     if (n === 0) return [];
 
+    // Pre-calculate vectors
     const vecs = keywords.map((kw) => embeddings.get(kw));
     const unvisited = new Set();
     for (let i = 0; i < n; i++) unvisited.add(i);
 
     const ordered = [];
+    
+    // Start with the most frequent keyword
     let currentIdx = 0;
     let maxCount = -1;
     for (let i = 0; i < n; i++) {
@@ -433,6 +486,7 @@
     unvisited.delete(currentIdx);
     ordered.push(keywords[currentIdx]);
 
+    // Greedy nearest-neighbor search
     let ops = 0;
     while (unvisited.size > 0) {
       let bestDist = -Infinity;
@@ -450,7 +504,7 @@
       currentIdx = bestIdx;
       unvisited.delete(currentIdx);
       ordered.push(keywords[currentIdx]);
-
+      
       ops++;
       if (ops % 50 === 0) {
         await new Promise(r => setTimeout(r, 0));
@@ -465,18 +519,19 @@
   function renderSemanticFlow() {
     renderKeywords();
     updateSelectionCount();
+    bindClusterControls();
   }
 
   function renderKeywords() {
     const body = $('#clusters-body');
     body.innerHTML = '';
-
+    
     const countSpan = $('#total-keywords-count');
     if (countSpan) countSpan.textContent = `(${state.orderedKeywords.length})`;
 
     const search = state.searchTerm.toLowerCase();
     let matchCount = 0;
-
+    
     const wrapper = document.createElement('div');
     wrapper.className = 'semantic-flow-container';
 
@@ -491,6 +546,7 @@
       btn.innerHTML = `${escapeHtml(kw)}<span class="pill-count">${count}</span>`;
       btn.setAttribute('aria-pressed', String(state.selectedKeywords.has(kw)));
 
+      // Search highlighting
       if (search) {
         if (kw.includes(search)) {
           btn.classList.add('search-match');
@@ -508,7 +564,7 @@
 
       wrapper.appendChild(btn);
     }
-
+    
     body.appendChild(wrapper);
 
     const searchCountSpan = $('#search-count');
@@ -537,115 +593,123 @@
       $('#btn-start-immersive').disabled = true;
       return;
     }
-
+    
+    // Calculate matching movies (union of all selected keywords)
     const matchingMovies = new Set();
     for (const kw of state.selectedKeywords) {
-      const movies = state.keywordToMovies ? state.keywordToMovies.get(kw) : null;
+      const movies = state.keywordToMovies.get(kw);
       if (movies) {
         for (const m of movies) matchingMovies.add(m);
       }
     }
-
+    
     const movieCount = matchingMovies.size;
     $('#selection-count').textContent = `${count} keyword${count === 1 ? '' : 's'} selected (${movieCount} item${movieCount === 1 ? '' : 's'})`;
     $('#btn-start-immersive').disabled = false;
   }
 
-  function bindGlobalControls() {
-    const btnResync = $('#btn-resync');
-    if (btnResync) btnResync.addEventListener('click', doResync);
-
-    const btnRetry = $('#btn-sync-retry');
-    if (btnRetry) btnRetry.addEventListener('click', doResync);
-
-    const btnClear = $('#btn-clear-selection');
-    if (btnClear) {
-      btnClear.addEventListener('click', () => {
-        state.selectedKeywords.clear();
-        renderKeywords();
-        updateSelectionCount();
-      });
-    }
-
+  function bindClusterControls() {
+    // Search (re-bound each render since the input may be fresh)
     const searchInput = $('#search-input');
-    if (searchInput) {
-      searchInput.addEventListener('input', (e) => {
-        state.searchTerm = e.target.value.trim();
-        renderKeywords();
-      });
-    }
+    $('#search-input').addEventListener('input', (e) => {
+      state.searchTerm = e.target.value.trim();
+      renderKeywords();
+    });
+  }
 
-    const btnStart = $('#btn-start-immersive');
-    if (btnStart) {
-      btnStart.addEventListener('click', async () => {
-        if (state.selectedKeywords.size === 0) return;
+  // Bind all static buttons once at boot so they work regardless of which
+  // stage is visible (fixes Re-sync being dead on the error path).
+  function bindGlobalControls() {
+    // Re-sync (clusters header)
+    $('#btn-resync').addEventListener('click', doResync);
 
-        const keywords = state.selectedKeywords;
-        const listsKey = StorageHelper.getStorageKey('imdb_lists', currentMode);
-        const matchingIds = await new Promise((resolve) => {
-          chrome.storage.local.get(listsKey, (data) => {
-            const lists = Array.isArray(data[listsKey]) ? data[listsKey] : [];
-            const ids = new Set();
-            for (const list of lists) {
-              if (!list || !Array.isArray(list.movies)) continue;
-              for (const movie of list.movies) {
-                if (!movie || typeof movie !== 'object') continue;
-                if (Array.isArray(movie.keywords)) {
-                  const hasMatch = movie.keywords.some(kw => keywords.has(String(kw).trim().toLowerCase()));
-                  if (hasMatch) {
-                    const id = String(movie.imdb_id || '').trim();
-                    const key = id || `t:${movie.title}|${movie.year}`;
-                    ids.add(key);
-                  }
+    // Retry (sync screen)
+    $('#btn-sync-retry').addEventListener('click', doResync);
+
+    // Clear selection
+    $('#btn-clear-selection').addEventListener('click', () => {
+      state.selectedKeywords.clear();
+      renderKeywords();
+      updateSelectionCount();
+    });
+
+    // Start Immersive Playback
+    $('#btn-start-immersive').addEventListener('click', async () => {
+      if (state.selectedKeywords.size === 0) return;
+
+      const keywords = state.selectedKeywords; // Set of strings
+      
+      // Find all movies that match these keywords
+      const matchingIds = await new Promise((resolve) => {
+        chrome.storage.local.get('imdb_lists', (data) => {
+          const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
+          const ids = new Set();
+          for (const list of lists) {
+            if (!list || !Array.isArray(list.movies)) continue;
+            for (const movie of list.movies) {
+              if (!movie || typeof movie !== 'object') continue;
+              if (Array.isArray(movie.keywords)) {
+                const hasMatch = movie.keywords.some(kw => keywords.has(String(kw).trim().toLowerCase()));
+                if (hasMatch) {
+                  const id = String(movie.imdb_id || '').trim();
+                  const key = id || `t:${movie.title}|${movie.year}`;
+                  ids.add(key);
                 }
               }
             }
-            resolve(Array.from(ids));
-          });
+          }
+          resolve(Array.from(ids));
         });
-
-        if (matchingIds.length === 0) {
-          alert('No movies found matching these keywords.');
-          return;
-        }
-
-        const aiClusterMoviesKey = StorageHelper.getStorageKey('ai_cluster_movies', currentMode);
-        try {
-          await chrome.storage.session.set({ [aiClusterMoviesKey]: matchingIds });
-        } catch {
-          await new Promise((resolve) => {
-            chrome.storage.local.set({ [aiClusterMoviesKey]: matchingIds }, resolve);
-          });
-        }
-
-        const hasKey = await new Promise((resolve) => {
-          chrome.storage.local.get('imdb_tmdb_key', (data) => {
-            resolve(!!(data && data.imdb_tmdb_key));
-          });
-        });
-
-        if (!hasKey) {
-          alert('Add your TMDB API key in the extension settings (popup → Settings) to use Immersive mode.');
-          return;
-        }
-
-        const url = chrome.runtime.getURL(
-          `src/immersive/immersive.html?scope=all&aiMovies=1&mode=${currentMode}`
-        );
-        chrome.tabs.create({ url });
       });
-    }
+
+      if (matchingIds.length === 0) {
+        alert('No movies found matching these keywords.');
+        return;
+      }
+
+      // Store matching movie IDs in session storage for the immersive page to pick up
+      try {
+        await chrome.storage.session.set({ ai_cluster_movies: matchingIds });
+      } catch {
+        // Session storage unavailable — fall back to local storage with a cleanup flag
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ ai_cluster_movies: matchingIds }, resolve);
+        });
+      }
+
+      // Check for TMDB key first
+      const hasKey = await new Promise((resolve) => {
+        chrome.storage.local.get('imdb_tmdb_key', (data) => {
+          resolve(!!(data && data.imdb_tmdb_key));
+        });
+      });
+
+      if (!hasKey) {
+        alert('Add your TMDB API key in the extension settings (popup → Settings) to use Immersive mode.');
+        return;
+      }
+
+      // Open immersive with AI movies flag
+      const url = chrome.runtime.getURL(
+        `src/immersive/immersive.html?scope=all&aiMovies=1`
+      );
+      chrome.tabs.create({ url });
+    });
   }
 
   function doResync() {
     state.selectedKeywords.clear();
     state.embeddings.clear();
+    state.clusters = [];
+    // Reset sync-error styling
     const statusEl = $('#sync-status');
     if (statusEl) statusEl.classList.remove('sync-error');
     $('#btn-sync-retry').classList.add('hidden');
     showStage('#stage-status');
     checkOllamaStatus();
   }
+
+  // ---- Helpers -----------------------------------------------------------
 
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -660,63 +724,69 @@
 
   async function boot() {
     bindGlobalControls();
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const paramMode = urlParams.get('mode');
-    currentMode = paramMode ? StorageHelper.normalizeMode(paramMode) : await StorageHelper.getActiveMode();
-
-    const ok = await checkOllamaStatus();
-    if (!ok) return;
-
-    const { keywordCounts } = await extractKeywords();
-    state.keywordCounts = keywordCounts;
-
-    if (keywordCounts.size === 0) {
+    
+    // Extract keywords immediately for counts
+    const extraction = await extractKeywords();
+    state.keywordCounts = extraction.filtered;
+    
+    if (state.keywordCounts.size === 0) {
       showStage('#stage-empty');
       return;
     }
-
-    showStage('#stage-status');
-    const statusTitle = document.querySelector('#stage-status .panel-title');
-    const statusSub = document.querySelector('#stage-status #status-sub');
-    if (statusTitle) statusTitle.textContent = 'Checking Embeddings';
-    if (statusSub) statusSub.textContent = 'Loading cached keyword vectors...';
-
-    const allKeywords = Array.from(keywordCounts.keys());
-    const cachedMap = await ZoomOutDB.getMany(allKeywords);
-
-    if (cachedMap.size === allKeywords.length) {
-      let valid = true;
-      for (const vec of cachedMap.values()) {
-        if (!vec || vec.length === 0) { valid = false; break; }
-      }
-      if (valid) {
-        state.embeddings = cachedMap;
-
-        const orderKey = StorageHelper.getStorageKey('ai_cluster_order', currentMode);
-        const orderData = await new Promise((resolve) => {
-          chrome.storage.local.get(orderKey, resolve);
-        });
-
-        let cachedOrder = orderData[orderKey] || [];
-        cachedOrder = cachedOrder.filter(k => cachedMap.has(k));
-
-        if (cachedOrder.length !== cachedMap.size) {
-          state.orderedKeywords = await sortSemantically(cachedMap, keywordCounts);
-          await new Promise((resolve) => {
-            chrome.storage.local.set({ [orderKey]: state.orderedKeywords }, resolve);
-          });
-        } else {
-          state.orderedKeywords = cachedOrder;
+    
+    // Load cached embeddings
+    let cached = new Map();
+    try {
+      cached = await loadCachedEmbeddings();
+    } catch { }
+    
+    if (cached.size === 0) {
+      // No DB exists, force the sync screen
+      showStage('#stage-status');
+      checkOllamaStatus();
+    } else {
+      // Load directly from DB without connecting to Ollama
+      const currentKeys = new Set(state.keywordCounts.keys());
+      const validEmbeddings = new Map();
+      
+      for (const [kw, vec] of cached.entries()) {
+        if (currentKeys.has(kw)) {
+          validEmbeddings.set(kw, vec);
         }
-
-        showStage('#stage-clusters');
-        renderSemanticFlow();
-        return;
       }
+      
+      state.embeddings = validEmbeddings;
+      
+      // Try to load cached order
+      const orderData = await new Promise((resolve) => {
+        chrome.storage.local.get('ai_cluster_order', resolve);
+      });
+      
+      let cachedOrder = orderData.ai_cluster_order || [];
+      // Filter out any obsolete keys from cached order
+      cachedOrder = cachedOrder.filter(k => validEmbeddings.has(k));
+      
+      // If we don't have all the valid keys in the cached order, recompute
+      if (cachedOrder.length !== validEmbeddings.size) {
+        showStage('#stage-status');
+        
+        const statusTitle = document.querySelector('#stage-status .panel-title');
+        const statusSub = document.querySelector('#stage-status #status-sub');
+        if (statusTitle) statusTitle.textContent = 'Sorting Keywords';
+        if (statusSub) statusSub.textContent = 'Computing semantic alignment map...';
+        
+        state.orderedKeywords = await sortSemantically(state.embeddings, state.keywordCounts);
+        
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ ai_cluster_order: state.orderedKeywords }, resolve);
+        });
+      } else {
+        state.orderedKeywords = cachedOrder;
+      }
+      
+      showStage('#stage-clusters');
+      renderSemanticFlow();
     }
-
-    syncEmbeddings(keywordCounts);
   }
 
   boot();

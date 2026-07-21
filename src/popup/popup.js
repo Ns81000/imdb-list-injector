@@ -7,45 +7,8 @@
   let currentPreview = null;
   let currentUrl = '';
   let defaultFormat = 'csv';
-  let currentMode = 'watching';
   const pendingRequests = new Map();
 
-  // --- Mode Toggle ---
-
-  function initModeToggle() {
-    StorageHelper.getActiveMode().then(mode => {
-      currentMode = mode;
-      updateModeToggleUI();
-      migrateStoredLists();
-      renderLists();
-    });
-
-    const btnWatching = $('#mode-btn-watching');
-    const btnWatched = $('#mode-btn-watched');
-
-    if (btnWatching && btnWatched) {
-      btnWatching.addEventListener('click', () => switchMode('watching'));
-      btnWatched.addEventListener('click', () => switchMode('watched'));
-    }
-  }
-
-  function switchMode(newMode) {
-    if (currentMode === newMode) return;
-    currentMode = newMode;
-    updateModeToggleUI();
-    StorageHelper.setActiveMode(newMode).then(() => {
-      renderLists();
-    });
-  }
-
-  function updateModeToggleUI() {
-    const btnWatching = $('#mode-btn-watching');
-    const btnWatched = $('#mode-btn-watched');
-    if (btnWatching && btnWatched) {
-      btnWatching.classList.toggle('active', currentMode === 'watching');
-      btnWatched.classList.toggle('active', currentMode === 'watched');
-    }
-  }
 
   // --- Navigation ---
 
@@ -72,9 +35,8 @@
   // --- Render Lists ---
 
   function renderLists() {
-    const key = StorageHelper.getStorageKey('imdb_lists', currentMode);
-    chrome.storage.local.get(key, (data) => {
-      const lists = data[key] || [];
+    chrome.storage.local.get('imdb_lists', (data) => {
+      const lists = data.imdb_lists || [];
       const container = $('#lists-container');
       const empty = $('#empty-state');
 
@@ -233,7 +195,7 @@
         showKeyStatus('Add your TMDB API key below to start Immersive mode.', 'error');
         return;
       }
-      const params = new URLSearchParams({ scope, mode: currentMode });
+      const params = new URLSearchParams({ scope });
       if (scope === 'list' && id) params.set('id', id);
       const url = chrome.runtime.getURL(`src/immersive/immersive.html?${params.toString()}`);
       chrome.tabs.create({ url });
@@ -243,9 +205,8 @@
   const btnImmersiveAll = $('#btn-immersive-all');
   if (btnImmersiveAll) {
     btnImmersiveAll.addEventListener('click', () => {
-      const key = StorageHelper.getStorageKey('imdb_lists', currentMode);
-      chrome.storage.local.get(key, (data) => {
-        const lists = data[key] || [];
+      chrome.storage.local.get('imdb_lists', (data) => {
+        const lists = data.imdb_lists || [];
         if (lists.length === 0) {
           showHomeStatus('No lists saved yet. Add a list first.', true);
           return;
@@ -258,7 +219,7 @@
   const btnAiCluster = $('#btn-ai-cluster');
   if (btnAiCluster) {
     btnAiCluster.addEventListener('click', () => {
-      const url = chrome.runtime.getURL(`src/embeddings/embeddings.html?mode=${currentMode}`);
+      const url = chrome.runtime.getURL('src/embeddings/embeddings.html');
       chrome.tabs.create({ url });
     });
   }
@@ -349,7 +310,7 @@
         setLoading(true);
         $('#fetch-btn').disabled = true;
 
-        chrome.runtime.sendMessage({ type: 'SAVE_LIST', listData, mode: currentMode }, (saveResponse) => {
+        chrome.runtime.sendMessage({ type: 'SAVE_LIST', listData }, (saveResponse) => {
           setLoading(false);
           $('#fetch-btn').disabled = false;
 
@@ -373,7 +334,7 @@
 
   function handleDelete(listId) {
     if (!confirm('Are you sure you want to delete this list?')) return;
-    chrome.runtime.sendMessage({ type: 'DELETE_LIST', listId, mode: currentMode }, (response) => {
+    chrome.runtime.sendMessage({ type: 'DELETE_LIST', listId }, (response) => {
       if (chrome.runtime.lastError) {
         showHomeStatus(`Delete failed: ${chrome.runtime.lastError.message}`, true);
         return;
@@ -396,7 +357,7 @@
     const svg = btnEl.querySelector('svg');
     if (svg) svg.style.animation = 'spin 0.6s linear infinite';
 
-    chrome.runtime.sendMessage({ type: 'REFRESH_LIST', listId, url, mode: currentMode }, (response) => {
+    chrome.runtime.sendMessage({ type: 'REFRESH_LIST', listId, url }, (response) => {
       pendingRequests.delete(listId);
       btnEl.style.opacity = '';
       btnEl.style.pointerEvents = '';
@@ -419,15 +380,14 @@
 
   $('#btn-export').addEventListener('click', async () => {
     try {
-      const key = StorageHelper.getStorageKey('imdb_lists', currentMode);
       const data = await new Promise(resolve => {
-        chrome.storage.local.get(key, resolve);
+        chrome.storage.local.get('imdb_lists', resolve);
       });
-      const lists = Array.isArray(data?.[key]) ? data[key] : [];
+      const lists = Array.isArray(data?.imdb_lists) ? data.imdb_lists : [];
       const blob = new Blob([JSON.stringify(lists, null, 2)], { type: 'application/json' });
-      const filename = `imdb-lists-backup-${currentMode}-${Date.now()}.json`;
+      const filename = `imdb-lists-backup-${Date.now()}.json`;
       await startDownloadFast(blob, filename);
-      showHomeStatus(`Exported ${currentMode} backup with ${lists.length} list${lists.length === 1 ? '' : 's'}.`);
+      showHomeStatus(`Exported backup with ${lists.length} list${lists.length === 1 ? '' : 's'}.`);
     } catch (err) {
       showHomeStatus(`Export failed: ${err.message || 'unknown error'}.`, true);
     }
@@ -453,6 +413,8 @@
         if (parsed.length === 0) throw new Error('Backup is empty');
         if (parsed.length > 10000) throw new Error('Too many lists (max 10000)');
 
+        // Never trust the file: sanitize every field before it is stored or
+        // rendered. Drops entries that cannot be salvaged into a valid list.
         const imported = parsed
           .map(sanitizeImportedList)
           .filter(Boolean);
@@ -461,17 +423,18 @@
           throw new Error('No valid lists found in backup');
         }
 
-        const key = StorageHelper.getStorageKey('imdb_lists', currentMode);
+        // Import restores (replaces) the whole library. Confirm before wiping an
+        // existing library so a mis-clicked import can't silently destroy data.
         const existing = await new Promise((resolve) => {
-          chrome.storage.local.get(key, (d) => resolve(Array.isArray(d?.[key]) ? d[key] : []));
+          chrome.storage.local.get('imdb_lists', (d) => resolve(Array.isArray(d?.imdb_lists) ? d.imdb_lists : []));
         });
         if (existing.length > 0 &&
-            !confirm(`This will replace your current ${currentMode} library (${existing.length} list${existing.length === 1 ? '' : 's'}) with ${imported.length} from backup. Continue?`)) {
+            !confirm(`This will replace your current ${existing.length} list${existing.length === 1 ? '' : 's'} with ${imported.length} from the backup. Continue?`)) {
           return;
         }
 
         await new Promise((resolve, reject) => {
-          chrome.storage.local.set({ [key]: imported }, () => {
+          chrome.storage.local.set({ imdb_lists: imported }, () => {
             if (chrome.runtime.lastError) {
               reject(chrome.runtime.lastError);
             } else {
@@ -497,9 +460,8 @@
   // --- Preferences ---
 
   function loadPrefs() {
-    const key = StorageHelper.getStorageKey('imdb_prefs', currentMode);
-    chrome.storage.local.get(key, (data) => {
-      const prefs = data[key] || {};
+    chrome.storage.local.get('imdb_prefs', (data) => {
+      const prefs = data.imdb_prefs || {};
       defaultFormat = prefs.defaultFormat || 'csv';
       $('#pref-format').value = defaultFormat;
     });
@@ -515,8 +477,7 @@
     }
     const prefs = { defaultFormat: format };
     defaultFormat = prefs.defaultFormat;
-    const key = StorageHelper.getStorageKey('imdb_prefs', currentMode);
-    chrome.storage.local.set({ [key]: prefs }, () => {
+    chrome.storage.local.set({ imdb_prefs: prefs }, () => {
       if (chrome.runtime.lastError) {
         showHomeStatus(`Save failed: ${chrome.runtime.lastError.message}`, true);
         return;
@@ -616,9 +577,8 @@
   const btnExportKeywords = $('#btn-export-keywords');
   if (btnExportKeywords) {
     btnExportKeywords.addEventListener('click', () => {
-      const key = StorageHelper.getStorageKey('imdb_lists', currentMode);
-      chrome.storage.local.get(key, (data) => {
-        const lists = Array.isArray(data[key]) ? data[key] : [];
+      chrome.storage.local.get('imdb_lists', (data) => {
+        const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
         const keywordCounts = new Map();
         
         for (const list of lists) {
@@ -646,21 +606,19 @@
   if (btnExportEmbeddings) {
     btnExportEmbeddings.addEventListener('click', () => {
       const DB_NAME = 'ZoomOutEmbeddings';
+      const STORE_NAME = 'vectors';
       const req = indexedDB.open(DB_NAME, 1);
       
       req.onerror = () => alert('Could not open embeddings database.');
       req.onsuccess = () => {
         const db = req.result;
-        const storeName = db.objectStoreNames.contains('embeddings')
-          ? 'embeddings'
-          : (db.objectStoreNames.contains('vectors') ? 'vectors' : null);
-        if (!storeName) {
-          alert('No embeddings found in database.');
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          alert('No embeddings found.');
           db.close();
           return;
         }
-        const tx = db.transaction(storeName, 'readonly');
-        const store = tx.objectStore(storeName);
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
         const getAll = store.getAll();
         
         getAll.onsuccess = () => {
@@ -801,11 +759,10 @@
   }
 
   async function getCurrentFormat() {
-    const key = StorageHelper.getStorageKey('imdb_prefs', currentMode);
     const data = await new Promise(resolve => {
-      chrome.storage.local.get(key, resolve);
+      chrome.storage.local.get('imdb_prefs', resolve);
     });
-    const storedFormat = data?.[key]?.defaultFormat;
+    const storedFormat = data?.imdb_prefs?.defaultFormat;
     const allowed = new Set(['csv', 'json', 'plain', 'markdown']);
     const format = allowed.has(storedFormat) ? storedFormat : 'csv';
     defaultFormat = format;
@@ -1151,23 +1108,22 @@
   ];
 
   function migrateStoredLists() {
-    const key = StorageHelper.getStorageKey('imdb_lists', currentMode);
-    chrome.storage.local.get(key, (data) => {
+    chrome.storage.local.get('imdb_lists', (data) => {
       if (chrome.runtime.lastError) return;
-      const lists = Array.isArray(data[key]) ? data[key] : [];
+      const lists = Array.isArray(data.imdb_lists) ? data.imdb_lists : [];
       let changed = false;
 
       for (const list of lists) {
         if (!list || !Array.isArray(list.movies)) continue;
         for (const m of list.movies) {
           if (!m || typeof m !== 'object') continue;
-          for (const keyName of MOVIE_FIELDS) {
-            const cleanVal = m[keyName] == null ? '' : String(m[keyName]).trim().toLowerCase();
+          for (const key of MOVIE_FIELDS) {
+            const cleanVal = m[key] == null ? '' : String(m[key]).trim().toLowerCase();
             if (cleanVal.includes('[object object]')) {
-              m[keyName] = '';
+              m[key] = '';
               changed = true;
-            } else if (m[keyName] != null && typeof m[keyName] === 'object') {
-              m[keyName] = keyName === 'description' ? extractText(m[keyName]) : scalarField(m[keyName]);
+            } else if (m[key] != null && typeof m[key] === 'object') {
+              m[key] = key === 'description' ? extractText(m[key]) : scalarField(m[key]);
               changed = true;
             }
           }
@@ -1175,7 +1131,7 @@
       }
 
       if (changed) {
-        chrome.storage.local.set({ [key]: lists }, () => {
+        chrome.storage.local.set({ imdb_lists: lists }, () => {
           if (!chrome.runtime.lastError) renderLists();
         });
       }
@@ -1193,7 +1149,7 @@
     }
     // Show immediate optimistic feedback
     showKeywordProgress(list.id, 'running', 0, force ? list.movies.length : missing, '', 'Starting...');
-    chrome.runtime.sendMessage({ type: 'START_KEYWORD_FETCH', listId: list.id, force, mode: currentMode }, (response) => {
+    chrome.runtime.sendMessage({ type: 'START_KEYWORD_FETCH', listId: list.id, force }, (response) => {
       // Update with authoritative count from background (unwrap nested status)
       if (response && response.success && response.status) {
         const s = response.status;
@@ -1272,5 +1228,6 @@
 
   // --- Init ---
 
-  initModeToggle();
+  migrateStoredLists();
+  renderLists();
 })();
