@@ -97,5 +97,8 @@ function parseIMDbFullCredits(html) {
     }
   }
 
+  for (const role in credits) {
+    credits[role] = Array.from(new Set(credits[role]));
+  }
   return credits;
 }

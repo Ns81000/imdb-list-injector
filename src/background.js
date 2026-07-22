@@ -51,18 +51,66 @@ function setupOllamaCorsBypass() {
   }).catch(() => {});
 }
 
+async function migrateStoredCredits() {
+  return withStorageLock(async () => {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(null, (data) => {
+        if (!data || chrome.runtime.lastError) {
+          resolve();
+          return;
+        }
+        const modifiedKeys = {};
+        for (const [key, val] of Object.entries(data)) {
+          if (key.startsWith('imdb_lists_') && Array.isArray(val)) {
+            let listChanged = false;
+            for (const list of val) {
+              if (list && Array.isArray(list.movies)) {
+                for (const movie of list.movies) {
+                  if (movie && movie.credits && typeof movie.credits === 'object') {
+                    for (const role of ['Director', 'Writers', 'Producers', 'Cast']) {
+                      if (Array.isArray(movie.credits[role])) {
+                        const original = movie.credits[role];
+                        const cleaned = Array.from(new Set(original.map(s => String(s || '').trim()).filter(Boolean)));
+                        if (cleaned.length !== original.length || cleaned.some((v, i) => v !== original[i])) {
+                          movie.credits[role] = cleaned;
+                          listChanged = true;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            if (listChanged) {
+              modifiedKeys[key] = val;
+            }
+          }
+        }
+        if (Object.keys(modifiedKeys).length > 0) {
+          chrome.storage.local.set(modifiedKeys, () => resolve());
+        } else {
+          resolve();
+        }
+      });
+    });
+  });
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   setupSidePanelBehavior();
   setupOllamaCorsBypass();
+  migrateStoredCredits().catch(() => {});
 });
 
 chrome.runtime.onStartup.addListener(() => {
   setupSidePanelBehavior();
   setupOllamaCorsBypass();
+  migrateStoredCredits().catch(() => {});
 });
 
 setupSidePanelBehavior();
 setupOllamaCorsBypass();
+migrateStoredCredits().catch(() => {});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FETCH_LIST') {

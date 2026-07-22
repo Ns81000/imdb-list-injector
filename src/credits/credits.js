@@ -66,17 +66,19 @@
       Producers: new Map(),
       Cast: new Map()
     };
+    const processedMovies = new Set();
 
     for (const list of lists) {
       if (!list || !Array.isArray(list.movies)) continue;
       for (const movie of list.movies) {
         if (!movie || !movie.credits || typeof movie.credits !== 'object') continue;
+        if (processedMovies.has(movie.imdb_id)) continue;
+        processedMovies.add(movie.imdb_id);
         const titleInfo = { imdb_id: movie.imdb_id, title: movie.title, type: movie.type, year: movie.year };
         for (const [role, names] of Object.entries(movie.credits)) {
           if (!counts[role] || !Array.isArray(names)) continue;
-          for (const name of names) {
-            const clean = String(name).trim();
-            if (!clean) continue;
+          const uniqueNames = Array.from(new Set(names.map(n => String(n || '').trim()).filter(Boolean)));
+          for (const clean of uniqueNames) {
             counts[role].set(clean, (counts[role].get(clean) || 0) + 1);
             if (!titleMap[role].has(clean)) titleMap[role].set(clean, []);
             titleMap[role].get(clean).push(titleInfo);
