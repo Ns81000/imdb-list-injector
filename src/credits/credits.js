@@ -106,9 +106,24 @@
       chrome.storage.session.get('imdb_tmdb_key_plain', (data) => {
         if (data && data.imdb_tmdb_key_plain) {
           resolve(data.imdb_tmdb_key_plain);
-          return;
+        } else {
+          chrome.storage.local.get('imdb_tmdb_key', async (localData) => {
+            if (localData && localData.imdb_tmdb_key) {
+              const pass = prompt('Unlock TMDB Photos: Enter your Immersive Mode passphrase');
+              if (pass) {
+                try {
+                  const key = await globalThis.ImmersiveCrypto.decrypt(localData.imdb_tmdb_key, pass);
+                  try { await chrome.storage.session.set({ imdb_tmdb_key_plain: key }); } catch {}
+                  resolve(key);
+                  return;
+                } catch {
+                  alert('Wrong passphrase. Photos will not load.');
+                }
+              }
+            }
+            resolve(null);
+          });
         }
-        resolve(null);
       });
     });
   }

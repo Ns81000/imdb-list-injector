@@ -12,7 +12,7 @@
 
   const $ = (s) => document.querySelector(s);
   const params = new URLSearchParams(location.search);
-  const SCOPE = params.get('scope') === 'all' ? 'all' : 'list';
+  const SCOPE = ['all', 'list', 'credits-filter'].includes(params.get('scope')) ? params.get('scope') : 'list';
   const LIST_ID = params.get('id') || '';
   const MODE = params.get('mode') === 'watched' ? 'watched' : 'watching';
   const STORAGE_KEY = `imdb_lists_${MODE}`;
@@ -242,6 +242,18 @@
         try { chrome.storage.session.remove('ai_cluster_movies'); } catch { /* noop */ }
         try { chrome.storage.local.remove('ai_cluster_movies'); } catch { /* noop */ }
       } catch { /* non-critical — proceed with unfiltered dataset */ }
+    } else if (SCOPE === 'credits-filter') {
+      try {
+        const filterData = await new Promise((resolve) => {
+          chrome.storage.session.get('imdb_credits_immersive_filter', (data) => {
+            resolve(data && data.imdb_credits_immersive_filter);
+          });
+        });
+        if (filterData && Array.isArray(filterData.imdbIds)) {
+          const targetSet = new Set(filterData.imdbIds);
+          state.source = state.source.filter(m => targetSet.has(m.imdb_id));
+        }
+      } catch { /* proceed */ }
     }
 
     // Resolve the API key: session cache first, else decrypt via passphrase.
@@ -270,7 +282,7 @@
           state.listName = list.name || 'IMDB List';
           resolve(dedupe(list.movies || []));
         } else {
-          state.listName = 'All lists';
+          state.listName = SCOPE === 'credits-filter' ? (params.get('personName') || 'Credits') : 'All lists';
           const all = [];
           for (const l of lists) if (l && Array.isArray(l.movies)) all.push(...l.movies);
           resolve(dedupe(all));
