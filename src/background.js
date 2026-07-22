@@ -528,6 +528,7 @@ async function startKeywordFetch(listId, force = false, storageKey = DEFAULT_STO
           queue.status = 'error';
           queue.errorMsg = err.message || 'Error fetching keywords';
           broadcastProgress(queue);
+          activeKeywordQueues.delete(listId);
           break;
         }
 
@@ -567,6 +568,7 @@ async function startKeywordFetch(listId, force = false, storageKey = DEFAULT_STO
       queue.status = 'error';
       queue.errorMsg = loopErr.message || 'Loop error';
       broadcastProgress(queue);
+      activeKeywordQueues.delete(listId);
     }
   })();
 
@@ -730,6 +732,7 @@ async function startCreditsFetch(listId, force = false, storageKey = DEFAULT_STO
           queue.status = 'error';
           queue.errorMsg = err.message || 'Error fetching credits';
           broadcastCreditsProgress(queue);
+          activeCreditsQueues.delete(listId);
           break;
         }
 
@@ -767,6 +770,7 @@ async function startCreditsFetch(listId, force = false, storageKey = DEFAULT_STO
       queue.status = 'error';
       queue.errorMsg = loopErr.message || 'Loop error';
       broadcastCreditsProgress(queue);
+      activeCreditsQueues.delete(listId);
     }
   })();
 
