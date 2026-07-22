@@ -1420,9 +1420,18 @@
     
     if (params.get('aiMovies') === '1') {
       window.close();
-      // Fallback if window.close() is blocked
       setTimeout(() => {
         location.href = '../embeddings/embeddings.html';
+      }, 300);
+      return;
+    }
+
+    if (SCOPE === 'credits-filter') {
+      window.close();
+      // Fallback if window.close() is blocked, though for tabs opened via chrome.tabs.create it usually works.
+      setTimeout(() => {
+        // Go back to the previous page if close fails
+        window.history.back();
       }, 300);
       return;
     }
