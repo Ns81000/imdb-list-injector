@@ -31,6 +31,7 @@
         <a href="#features">Features</a>
         <a href="#immersive">Immersive</a>
         <a href="#ai">AI Clustering</a>
+        <a href="#credits">Credits</a>
         <a href="#privacy">Privacy</a>
         <a href="#install">Install</a>
       </nav>
@@ -49,6 +50,7 @@
       <a href="#features">Features</a>
       <a href="#immersive">Immersive</a>
       <a href="#ai">AI Clustering</a>
+      <a href="#credits">Credits</a>
       <a href="#privacy">Privacy</a>
       <a href="#install">Install</a>
       <a href="https://github.com/Ns81000/imdb-list-injector" target="_blank" rel="noopener">GitHub ↗</a>
@@ -64,10 +66,10 @@
           <p class="hero-kicker reveal"><span class="badge-pill">Free &amp; open-source Chrome extension</span></p>
           <h1 class="hero-title" data-split>Every list deserves the big screen.</h1>
           <p class="hero-sub reveal" data-delay="400">
-            Zoom Out captures any public IMDB list as clean, structured data you can
+            Zoom Out captures any public IMDb list as clean, structured data you can
             copy or export anywhere — then steps back and projects it as a full-screen,
             backdrop-driven cinema of everything you want to watch. Now with keyword
-            scraping and local AI clustering to discover hidden patterns across your library.
+            scraping, credits &amp; cast breakdown, and local AI clustering across your library.
           </p>
           <div class="hero-cta reveal" data-delay="550">
             <a class="btn btn-solid btn-lg" href="#install">
@@ -141,13 +143,13 @@
           <span>CSV</span><b>·</b><span>JSON</span><b>·</b><span>Markdown</span><b>·</b><span>Plain text</span><b>·</b>
           <span>Full-list pagination</span><b>·</b><span>Local library</span><b>·</b><span>Cinematic slideshow</span><b>·</b>
           <span>Live filters</span><b>·</b><span>Clips reel</span><b>·</b><span>Encrypted keys</span><b>·</b>
-          <span>Keyword scraping</span><b>·</b><span>AI clustering</span><b>·</b><span>Local Ollama</span><b>·</b>
+          <span>Keyword scraping</span><b>·</b><span>Credits analysis</span><b>·</b><span>AI clustering</span><b>·</b><span>Local Ollama</span><b>·</b>
         </div>
         <div class="film-run" aria-hidden="true">
           <span>CSV</span><b>·</b><span>JSON</span><b>·</b><span>Markdown</span><b>·</b><span>Plain text</span><b>·</b>
           <span>Full-list pagination</span><b>·</b><span>Local library</span><b>·</b><span>Cinematic slideshow</span><b>·</b>
           <span>Live filters</span><b>·</b><span>Clips reel</span><b>·</b><span>Encrypted keys</span><b>·</b>
-          <span>Keyword scraping</span><b>·</b><span>AI clustering</span><b>·</b><span>Local Ollama</span><b>·</b>
+          <span>Keyword scraping</span><b>·</b><span>Credits analysis</span><b>·</b><span>AI clustering</span><b>·</b><span>Local Ollama</span><b>·</b>
         </div>
       </div>
     </section>
@@ -248,10 +250,18 @@
           <h3>Local AI clustering</h3>
           <p>Embed your scraped keywords with a local Ollama model, then explore a semantically sorted map of meaning — select clusters and launch them straight into cinema.</p>
         </article>
+
+        <article class="card fc-lavender reveal" data-delay="160">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h3>Credits &amp; cast breakdown</h3>
+          <p>Scrape directors, writers, producers, and actors across titles. Explore ranked leaderboards, headshots from TMDB, and library filmographies.</p>
+        </article>
       </div>
 
       <div class="stats reveal">
-        <div class="stat"><span class="stat-n" data-count="9">0</span><span class="stat-l">metadata fields per title</span></div>
+        <div class="stat"><span class="stat-n" data-count="12">0</span><span class="stat-l">metadata fields per title</span></div>
         <div class="stat"><span class="stat-n" data-count="4">0</span><span class="stat-l">export formats</span></div>
         <div class="stat"><span class="stat-n" data-count="100" data-suffix="%">0</span><span class="stat-l">stored locally</span></div>
         <div class="stat"><span class="stat-n" data-count="0">0</span><span class="stat-l">cloud servers</span></div>
@@ -319,29 +329,106 @@
     </section>
 
     <!-- ===================== AI CLUSTERING ===================== -->
-    <section class="section ai-section" id="ai">
-      <div class="section-head">
-        <p class="eyebrow reveal">AI Clustering</p>
-        <h2 class="reveal" data-delay="80">See what connects your library.</h2>
-        <p class="section-sub reveal" data-delay="160">
+    <section class="section ai" id="ai">
+      <div class="ai-banner reveal">
+        <p class="eyebrow">AI Clustering</p>
+        <h2>See what connects your library.</h2>
+        <p class="ai-banner-sub">
           Zoom Out scrapes every keyword from IMDb, embeds them with a local AI model running on your machine,
-          and sorts them by semantic similarity — revealing hidden thematic threads across hundreds of titles.
+          and sorts them by semantic similarity — revealing hidden thematic threads.
+        </p>
+        
+        <div class="ai-cloud">
+          <span class="cc-pill cp-pink">cyberpunk</span>
+          <span class="cc-pill cp-mint">space travel</span>
+          <span class="cc-pill cp-lavender">artificial intelligence</span>
+          <span class="cc-pill cp-peach">neo-noir</span>
+          <span class="cc-pill cp-ochre">dystopian</span>
+          <span class="cc-pill cp-cream">mars</span>
+          <span class="cc-pill cp-mint">interstellar</span>
+        </div>
+
+        <div class="ai-steps">
+          <div class="ai-step">
+            <span class="ai-step-num">01</span>
+            <strong>Scrape &amp; Embed</strong>
+            <span>One-click local Ollama processing.</span>
+          </div>
+          <div class="ai-step">
+            <span class="ai-step-num">02</span>
+            <strong>Semantic Map</strong>
+            <span>Keywords sorted by cosine similarity.</span>
+          </div>
+          <div class="ai-step">
+            <span class="ai-step-num">03</span>
+            <strong>Select &amp; Launch</strong>
+            <span>Pass clusters straight to the player.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== CAST & CREW ===================== -->
+    <section class="section credits" id="credits">
+      <div class="section-head">
+        <p class="eyebrow reveal">Cast &amp; Crew Analysis</p>
+        <h2 class="reveal" data-delay="80">Know who's behind every title.</h2>
+        <p class="section-sub reveal" data-delay="160">
+          Zoom Out parses full IMDb credits for Directors, Writers, Producers, and Cast — aggregating your library to reveal your most-watched directors, favorite actors, and recurring creative talent.
         </p>
       </div>
+      
+      <div class="feature-grid reveal" data-delay="200">
+        <!-- Card 1 -->
+        <article class="card fc-lavender">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h3>Ranked leaderboards</h3>
+          <p>Explore frequency-ranked lists of directors, actors, writers, and producers across your individual lists or entire library.</p>
+          <div class="cc-list">
+             <div class="cc-row"><span>Christopher Nolan</span> <b>8 titles</b></div>
+             <div class="cc-row"><span>Denis Villeneuve</span> <b>5 titles</b></div>
+          </div>
+        </article>
 
-      <div class="immersive-points">
-        <div class="point reveal" data-delay="0">
-          <h4>Scrape → Embed → Align</h4>
-          <p>One-click keyword scraping feeds into Ollama's <code>qwen3-embedding</code> model. Keywords are sorted by cosine similarity into a continuous river of meaning you can visually scan.</p>
-        </div>
-        <div class="point reveal" data-delay="100">
-          <h4>Select and launch</h4>
-          <p>Search, browse, and pick keyword clusters — the matched movies are passed directly to the Immersive cinema player for instant backdrop-driven playback.</p>
-        </div>
-        <div class="point reveal" data-delay="200">
-          <h4>100% on your machine</h4>
-          <p>Ollama runs locally. No keyword or movie data ever leaves your computer. Embeddings are cached in IndexedDB for instant re-loads without re-computing.</p>
-        </div>
+        <!-- Card 2 -->
+        <article class="card fc-peach">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </div>
+          <h3>TMDB headshots</h3>
+          <p>Headshots retrieved live via TMDB API with clickable breakdowns of matching titles in your local collection.</p>
+          <div class="cc-list">
+             <div class="cc-profile">
+               <div class="cc-avatar" style="background: #fff;">CM</div>
+               <div class="cc-info"><span>Cillian Murphy</span> <i>Actor</i></div>
+             </div>
+             <div class="cc-profile">
+               <div class="cc-avatar" style="background: #fff;">HZ</div>
+               <div class="cc-info"><span>Hans Zimmer</span> <i>Composer</i></div>
+             </div>
+          </div>
+        </article>
+
+        <!-- Card 3 -->
+        <article class="card fc-mint">
+          <div class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </div>
+          <h3>Exportable JSON</h3>
+          <p>Export your aggregated credits database as JSON from Preferences or the standalone page for external reporting.</p>
+          <div class="cc-list">
+             <div class="cc-export">
+               <span class="cc-filename">credits_export.json</span>
+               <span class="cc-btn">Save</span>
+             </div>
+             <div class="cc-export">
+               <span class="cc-filename">credits_export.csv</span>
+               <span class="cc-btn" style="background: rgba(255,255,255,0.6); color: var(--ink);">Copy</span>
+             </div>
+          </div>
+        </article>
       </div>
     </section>
 

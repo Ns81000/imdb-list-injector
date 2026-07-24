@@ -24,7 +24,7 @@
 
 **Zoom Out** (formerly *IMDB List Injector*) is a Chrome extension that parses any public IMDb list into clean, structured data you can **copy or download** in seconds — ready for an AI chat, a spreadsheet, or a document. It then steps back and lets you **project that same list as a full-screen, backdrop-driven cinematic slideshow** with posters and high-resolution backdrops pulled live from TMDB.
 
-Now with **IMDb keyword scraping** and **local AI-powered semantic clustering** via Ollama — discover hidden patterns across your movie library, then launch those clusters straight into the cinema player.
+Now with **IMDb keyword scraping**, **credits & cast/crew breakdown**, and **local AI-powered semantic clustering** via Ollama — discover hidden patterns and recurring creative talent across your movie library, then launch those clusters straight into the cinema player.
 
 Everything runs locally in your browser to respect your security and privacy.
 
@@ -34,6 +34,7 @@ Everything runs locally in your browser to respect your security and privacy.
 
 ### 📋 Lists & Export
 * **Detailed Metadata Extraction** — Captures title, year, IMDb rating, vote count, genre, content rating, duration, and plot description for every list item.
+* **Dual Library Organization** — Separate your collection into **Watching** and **Watched** tabs, with tab counts and mode-aware actions.
 * **Multiple Export Formats** — Copy or download lists in a single click as **CSV, JSON, Plain Text, or Markdown Table**.
 * **Full-List Pagination** — Automatically scrolls and fetches every page of large lists (not just the first 250 items).
 * **Local Library Manager** — Save lists, refresh them on demand, and back up or restore your entire library as JSON.
@@ -41,6 +42,15 @@ Everything runs locally in your browser to respect your security and privacy.
 * **Bot-Challenge Detection** — Detects and surfaces accurate errors when IMDb's WAF returns a verification page instead of list data.
 * **Concurrent-Safe Storage** — A serialized write-lock prevents concurrent refreshes, saves, or deletes from overwriting each other.
 * **Private by Design** — All list metadata is stored locally. The parser only communicates directly with IMDb.
+
+### 🎬 Credits & Cast/Crew Analysis
+* **Per-Title Credits Scraping** — Scrape IMDb full credits pages for Directors, Writers, Producers, and Cast with a live progress bar, cancel, and resume.
+* **Batch Persistence** — Credits are saved in incremental batches (every 10 titles) so progress is preserved even if interrupted.
+* **Credits-Aware Refresh** — Refreshing a list preserves previously scraped credits by mapping them forward to refreshed titles.
+* **Standalone Credits Analysis Page** — Aggregates directors, writers, producers, and actors across a single list or your entire library.
+* **TMDB Headshot Integration** — Dynamically fetches profile photos via TMDB Person Search API.
+* **Library Filmography Matching** — Shows every matching title in your library per director, writer, producer, or actor.
+* **Credits JSON Export** — Export all credits data across your library as structured JSON for external analysis.
 
 ### 🏷️ Keywords
 * **Per-Title Keyword Scraping** — Scrape IMDb's full keyword set for every title in a list, powered by a background queue with live progress, cancel, and resume.
@@ -81,6 +91,7 @@ Everything runs locally in your browser to respect your security and privacy.
 * **JSON** — Fully structured objects adhering to a stable database schema.
 * **Plain Text** — Clean, human-readable bullet points.
 * **Markdown Table** — Ready-to-paste tables optimized for documentation and LLMs.
+* **Specialized Data Exports** — Export **Keywords (JSON)**, **Embeddings (JSON)**, and **Credits (JSON)** directly from Settings.
 
 Choose your preferred default format under **Settings** (the gear icon) to customize both the **Copy** and **Download** button triggers.
 
@@ -104,10 +115,17 @@ Choose your preferred default format under **Settings** (the gear icon) to custo
 
 ### Saving and exporting a list
 1. Launch **Zoom Out** from your extension toolbar or Chrome's Side Panel.
-2. Click **Add List**, paste a public IMDb list URL, and hit **Fetch**.
-3. The list will load and persist in your library.
-4. Click **Copy** or **Download** on any list card to export.
-5. Use the footer actions to **Export Backup** or **Import Backup** your entire saved database.
+2. Select your target library mode (**Watching** or **Watched**).
+3. Click **Add List**, paste a public IMDb list URL, and hit **Fetch**.
+4. The list will load and persist in your chosen library mode.
+5. Click **Copy** or **Download** on any list card to export.
+6. Use the footer actions to **Export Backup** or **Import Backup** your entire saved database.
+
+### Scraping credits & exploring cast/crew
+1. Click **Credits** on any list card to scrape directors, writers, producers, and cast.
+2. The background worker fetches IMDb full credits pages with a live progress bar.
+3. Click the **Credits** icon (people icon) in the extension header to open the library-wide **Credits Analysis** page.
+4. Browse top directors, actors, and writers, view TMDB headshots, and see matching titles in your library.
 
 ### Scraping keywords
 1. Click **Keywords** on any list card.
@@ -146,13 +164,13 @@ Choose your preferred default format under **Settings** (the gear icon) to custo
 | `clipboardWrite` | To copy formatted markdown tables or text to your clipboard. |
 | `sidePanel` | To run the extension UI inside Chrome's native side panel. |
 | `declarativeNetRequestWithHostAccess` | To modify outgoing request headers for local Ollama CORS bypass. |
-| `host_permissions: www.imdb.com` | To directly fetch and parse public IMDb lists and keyword pages. |
+| `host_permissions: www.imdb.com` | To directly fetch and parse public IMDb lists, keyword pages, and full credits pages. |
 | `host_permissions: localhost:11434` | To communicate with a local Ollama instance for AI embeddings. |
 
 **Network security** is restricted by a strict Content Security Policy to:
-* `www.imdb.com` (Fetching lists and keyword pages)
-* `api.themoviedb.org` (Resolving metadata and imagery)
-* `image.tmdb.org` (Retrieving poster and backdrop pictures)
+* `www.imdb.com` (Fetching lists, keyword pages, and credits pages)
+* `api.themoviedb.org` (Resolving metadata, backdrops, and person photos)
+* `image.tmdb.org` (Retrieving poster, backdrop, and person headshot pictures)
 * `localhost:11434` (Local Ollama AI model — never leaves your machine)
 
 ---
@@ -162,8 +180,9 @@ Choose your preferred default format under **Settings** (the gear icon) to custo
 ```
 manifest.json            MV3 configurations, permissions, and Content Security Policy
 src/
-  background.js          Background service worker: fetching, parsing, keyword queue, Ollama proxy
+  background.js          Background service worker: fetching, parsing, keyword & credits queues, Ollama proxy
   parser.js              Parsing logic (JSON-LD + __NEXT_DATA__ + keywords extraction)
+  credits-parser.js      IMDb full credits parser (Directors, Writers, Producers, Cast)
   popup/                 Side-panel extension UI, settings, and library management
     popup.html
     popup.css
@@ -176,6 +195,10 @@ src/
     embeddings.html
     embeddings.css
     embeddings.js
+  credits/               Credits Analysis page (cast/crew rankings & TMDB headshots)
+    credits.html
+    credits.css
+    credits.js
   lib/
     crypto.js            AES-GCM + PBKDF2 cryptography layer (Web Crypto API)
     tmdb.js              TMDB API handler, caching utility, and image resolver
