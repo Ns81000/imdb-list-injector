@@ -15,7 +15,7 @@
   ],
 
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://image.tmdb.org; connect-src https://www.imdb.com https://api.themoviedb.org http://localhost:11434 https://*.supabase.co; object-src 'none';"
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://image.tmdb.org; connect-src https://www.imdb.com https://api.themoviedb.org http://localhost:11434 http://localhost:* https://*.supabase.co https://*.vercel.app; object-src 'none';"
   },
 
   "side_panel": {
@@ -25,7 +25,9 @@
   "host_permissions": [
     "https://www.imdb.com/*",
     "http://localhost:11434/*",
-    "https://*.supabase.co/*"
+    "https://*.supabase.co/*",
+    "https://*.vercel.app/*",
+    "http://localhost/*"
   ],
 
   "background": {
