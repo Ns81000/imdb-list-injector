@@ -8,19 +8,25 @@ const MAX_STRING_LEN = 10_000;
 const MAX_MOVIES_PER_LIST = 5_000;
 const MAX_LISTS = 500;
 
+const strField = (max: number) =>
+  z.preprocess((val) => (val == null ? null : String(val)), z.string().max(max).nullable().optional());
+
 const movieSchema = z.object({
   imdb_id: z.string().min(1).max(32),
-  position: z.number().int().nullable().optional(),
-  type: z.string().max(64).nullable().optional(),
-  title: z.string().min(1).max(500),
-  year: z.string().max(16).nullable().optional(),
-  rating: z.string().max(16).nullable().optional(),
-  votes: z.string().max(32).nullable().optional(),
-  genre: z.string().max(256).nullable().optional(),
-  content_rating: z.string().max(32).nullable().optional(),
-  duration: z.string().max(32).nullable().optional(),
-  description: z.string().max(MAX_STRING_LEN).nullable().optional(),
-  imdb_url: z.string().max(512).nullable().optional(),
+  position: z.preprocess(
+    (val) => (val == null || val === "" ? null : Number(val)),
+    z.number().int().nullable().optional(),
+  ),
+  type: strField(64),
+  title: z.preprocess((val) => String(val ?? "Untitled"), z.string().min(1).max(500)),
+  year: strField(16),
+  rating: strField(16),
+  votes: strField(32),
+  genre: strField(256),
+  content_rating: strField(32),
+  duration: strField(32),
+  description: strField(MAX_STRING_LEN),
+  imdb_url: strField(512),
   keywords: z.array(z.string().max(MAX_KEYWORD_LEN)).max(200).nullable().optional(),
   credits: z.any().nullable().optional(),
 });
