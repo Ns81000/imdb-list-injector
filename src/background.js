@@ -857,3 +857,82 @@ async function fetchCreditsForTitle(imdbId, signal) {
 
   return parseIMDbFullCredits(html);
 }
+
+// --- Zoom Out Web Auto-Sync ---
+// Debounced push to Zoom Out Web whenever list data changes in storage.
+// Only fires if the user has configured a connection in settings.
+
+let _syncTimer = null;
+const SYNC_DEBOUNCE_MS = 5000;
+
+function scheduleSyncPush(mode) {
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => performSyncPush(mode), SYNC_DEBOUNCE_MS);
+}
+
+async function performSyncPush(mode) {
+  try {
+    const syncData = await new Promise(resolve =>
+      chrome.storage.local.get('zoom_out_sync', resolve)
+    );
+    const sync = syncData.zoom_out_sync;
+    if (!sync || !sync.webUrl || !sync.syncToken) return;
+
+    const sk = mode === 'watched' ? 'imdb_lists_watched' : 'imdb_lists_watching';
+    const storageData = await new Promise(resolve =>
+      chrome.storage.local.get(sk, resolve)
+    );
+    const lists = storageData[sk] || [];
+
+    const payload = {
+      mode,
+      lists: lists.map(list => ({
+        id: list.id || list.url || '',
+        name: list.name || 'Untitled',
+        url: list.url || null,
+        movieCount: list.movieCount || (list.movies ? list.movies.length : 0),
+        lastRefreshed: list.lastRefreshed || new Date().toISOString(),
+        movies: (list.movies || []).map(m => ({
+          imdb_id: m.id || m.imdb_id || '',
+          position: m.position ?? null,
+          type: m.type || null,
+          title: m.title || 'Untitled',
+          year: m.year || null,
+          rating: m.rating || null,
+          votes: m.votes || null,
+          genre: m.genre || null,
+          content_rating: m.contentRating || m.content_rating || null,
+          duration: m.duration || null,
+          description: typeof m.description === 'string' ? m.description : null,
+          imdb_url: m.imdbUrl || m.imdb_url || null,
+          keywords: Array.isArray(m.keywords) ? m.keywords : null,
+          credits: m.credits || null,
+        })),
+      })),
+    };
+
+    const url = sync.webUrl.replace(/\/$/, '') + '/api/public/sync/push';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-zoom-out-token': sync.syncToken,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      console.log(`[Zoom Out] Auto-synced ${mode}: ${lists.length} lists`);
+    } else {
+      console.warn(`[Zoom Out] Auto-sync failed: HTTP ${res.status}`);
+    }
+  } catch (err) {
+    console.warn('[Zoom Out] Auto-sync error:', err.message);
+  }
+}
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return;
+  if (changes.imdb_lists_watching) scheduleSyncPush('watching');
+  if (changes.imdb_lists_watched) scheduleSyncPush('watched');
+});

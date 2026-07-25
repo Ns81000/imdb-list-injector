@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Zoom Out icon">
+  <!-- Clay-style app tile: cream canvas, ink zoom brackets, hot-pink screen.
+       Simplified to one bracket level so it stays legible at 16-32px. -->
+
+  <!-- cream tile -->
+  <rect x="0" y="0" width="128" height="128" rx="28" fill="#fffaf0"/>
+  <rect x="1.5" y="1.5" width="125" height="125" rx="26.5" fill="none" stroke="#e5e5e5" stroke-width="3"/>
+
+  <!-- zoom brackets — ink, chunky and rounded -->
+  <g stroke="#0a0a0a" stroke-width="10" stroke-linecap="round" fill="none">
+    <path d="M40 20 H30 a10 10 0 0 0 -10 10 V40"/>
+    <path d="M88 20 H98 a10 10 0 0 1 10 10 V40"/>
+    <path d="M40 108 H30 a10 10 0 0 1 -10 -10 V88"/>
+    <path d="M88 108 H98 a10 10 0 0 0 10 -10 V88"/>
+  </g>
+
+  <!-- hot-pink screen with cream inner screen -->
+  <rect x="34" y="44" width="60" height="40" rx="12" fill="#ff4d8b"/>
+  <rect x="47" y="53" width="34" height="22" rx="7" fill="#fffaf0"/>
+  <rect x="58" y="60" width="12" height="8" rx="3.5" fill="#ff4d8b"/>
+</svg>

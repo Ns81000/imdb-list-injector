@@ -35,6 +35,13 @@
             <path d="M12.5 9.5a3 3 0 0 1 2.5 3v1.5" stroke-width="1.3"/>
           </svg>
         </button>
+        <button id="btn-sync-push" class="icon-btn" title="Sync to Zoom Out Web">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 11v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1"/>
+            <polyline points="5 5 8 2 11 5"/>
+            <line x1="8" y1="2" x2="8" y2="11"/>
+          </svg>
+        </button>
         <button id="btn-prefs" class="icon-btn" title="Settings">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"/>
@@ -143,6 +150,22 @@
         <button id="btn-clear-key" class="btn-footer">Clear</button>
       </div>
       <div id="key-status" class="key-status hidden"></div>
+
+      <div class="prefs-divider"></div>
+
+      <label class="label" for="supabase-url-input">Zoom Out Web URL</label>
+      <input id="supabase-url-input" class="input" type="url" placeholder="https://your-app.vercel.app" spellcheck="false" autocomplete="off">
+      <span class="label-hint">The URL of your deployed Zoom Out Web dashboard.</span>
+
+      <label class="label label-spaced" for="sync-token-input">Sync Token</label>
+      <input id="sync-token-input" class="input" type="password" placeholder="Your sync token" spellcheck="false" autocomplete="off">
+      <span class="label-hint">Must match the SYNC_TOKEN environment variable on your Zoom Out Web deployment.</span>
+
+      <div class="key-actions">
+        <button id="btn-save-sync" class="btn-fetch key-save-btn">Save Connection</button>
+        <button id="btn-clear-sync" class="btn-footer">Clear</button>
+      </div>
+      <div id="sync-status" class="key-status hidden"></div>
 
       <div class="prefs-divider"></div>
 

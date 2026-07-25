@@ -570,6 +570,7 @@
       $('#pref-format').value = defaultFormat;
     });
     refreshKeyState();
+    loadSyncPrefs();
   }
 
   function savePrefs() {
@@ -665,6 +666,141 @@
       try { await chrome.storage.session.remove('imdb_tmdb_key_plain'); } catch { /* noop */ }
       $('#btn-clear-key').disabled = true;
       showKeyStatus('TMDB key removed.', 'ok');
+    });
+  }
+
+  // --- Zoom Out Web Sync Connection ---
+
+  let syncStatusTimer = null;
+  function showSyncStatus(message, kind) {
+    const el = $('#sync-status');
+    if (!el) return;
+    el.textContent = String(message || '').slice(0, 200);
+    el.classList.remove('hidden', 'error', 'ok');
+    if (kind === 'error') el.classList.add('error');
+    else if (kind === 'ok') el.classList.add('ok');
+    clearTimeout(syncStatusTimer);
+    if (kind === 'ok') {
+      syncStatusTimer = setTimeout(() => { el.classList.add('hidden'); syncStatusTimer = null; }, 4000);
+    }
+  }
+
+  function loadSyncPrefs() {
+    chrome.storage.local.get('zoom_out_sync', (data) => {
+      const sync = data.zoom_out_sync || {};
+      const urlInput = $('#supabase-url-input');
+      const tokenInput = $('#sync-token-input');
+      if (urlInput) urlInput.value = sync.webUrl || '';
+      if (tokenInput) tokenInput.value = sync.syncToken || '';
+      const clearBtn = $('#btn-clear-sync');
+      if (clearBtn) clearBtn.disabled = !sync.webUrl && !sync.syncToken;
+      if (sync.webUrl) showSyncStatus('Connection configured.', 'ok');
+    });
+  }
+
+  const btnSaveSync = $('#btn-save-sync');
+  if (btnSaveSync) {
+    btnSaveSync.addEventListener('click', () => {
+      const webUrl = ($('#supabase-url-input').value || '').trim();
+      const syncToken = ($('#sync-token-input').value || '').trim();
+      if (!webUrl) { showSyncStatus('Enter your Zoom Out Web URL.', 'error'); return; }
+      if (!syncToken) { showSyncStatus('Enter your sync token.', 'error'); return; }
+      try {
+        new URL(webUrl);
+      } catch {
+        showSyncStatus('Invalid URL format.', 'error');
+        return;
+      }
+      chrome.storage.local.set({ zoom_out_sync: { webUrl, syncToken } }, () => {
+        if (chrome.runtime.lastError) {
+          showSyncStatus(`Save failed: ${chrome.runtime.lastError.message}`, 'error');
+          return;
+        }
+        showSyncStatus('Connection saved. Sync is ready.', 'ok');
+        const clearBtn = $('#btn-clear-sync');
+        if (clearBtn) clearBtn.disabled = false;
+      });
+    });
+  }
+
+  const btnClearSync = $('#btn-clear-sync');
+  if (btnClearSync) {
+    btnClearSync.addEventListener('click', () => {
+      if (!confirm('Remove saved Zoom Out Web connection?')) return;
+      chrome.storage.local.remove('zoom_out_sync', () => {
+        $('#supabase-url-input').value = '';
+        $('#sync-token-input').value = '';
+        $('#btn-clear-sync').disabled = true;
+        showSyncStatus('Connection removed.', 'ok');
+      });
+    });
+  }
+
+  // --- Sync Push Button ---
+
+  const btnSyncPush = $('#btn-sync-push');
+  if (btnSyncPush) {
+    btnSyncPush.addEventListener('click', async () => {
+      chrome.storage.local.get('zoom_out_sync', async (data) => {
+        const sync = data.zoom_out_sync;
+        if (!sync || !sync.webUrl || !sync.syncToken) {
+          showHomeStatus('Set up Zoom Out Web connection in Settings first.', true);
+          return;
+        }
+        btnSyncPush.disabled = true;
+        btnSyncPush.title = 'Syncing...';
+        try {
+          const sk = getStorageKey();
+          const storageData = await new Promise(resolve => chrome.storage.local.get(sk, resolve));
+          const lists = storageData[sk] || [];
+          const payload = {
+            mode: activeMode,
+            lists: lists.map(list => ({
+              id: list.id || list.url || '',
+              name: list.name || 'Untitled',
+              url: list.url || null,
+              movieCount: list.movieCount || (list.movies ? list.movies.length : 0),
+              lastRefreshed: list.lastRefreshed || new Date().toISOString(),
+              movies: (list.movies || []).map(m => ({
+                imdb_id: m.id || m.imdb_id || '',
+                position: m.position ?? null,
+                type: m.type || null,
+                title: m.title || 'Untitled',
+                year: m.year || null,
+                rating: m.rating || null,
+                votes: m.votes || null,
+                genre: m.genre || null,
+                content_rating: m.contentRating || m.content_rating || null,
+                duration: m.duration || null,
+                description: typeof m.description === 'string' ? m.description : null,
+                imdb_url: m.imdbUrl || m.imdb_url || null,
+                keywords: Array.isArray(m.keywords) ? m.keywords : null,
+                credits: m.credits || null,
+              })),
+            })),
+          };
+          const url = sync.webUrl.replace(/\/$/, '') + '/api/public/sync/push';
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-zoom-out-token': sync.syncToken,
+            },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) {
+            const body = await res.text().catch(() => '');
+            throw new Error(`HTTP ${res.status}: ${body.slice(0, 100)}`);
+          }
+          const result = await res.json();
+          showHomeStatus(`Synced ${result.lists || 0} lists, ${result.movies || 0} movies to Zoom Out Web.`);
+        } catch (err) {
+          showHomeStatus(`Sync failed: ${err.message || 'network error'}`, true);
+        } finally {
+          btnSyncPush.disabled = false;
+          btnSyncPush.title = 'Sync to Zoom Out Web';
+        }
+      });
     });
   }
 

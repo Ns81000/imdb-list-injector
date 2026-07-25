@@ -1,0 +1,14 @@
+{
+  "name": "Zoom Out",
+  "short_name": "Zoom Out",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fffaf0",
+  "theme_color": "#fffaf0",
+  "description": "Personal movie library analytics dashboard.",
+  "categories": ["entertainment", "productivity"],
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
