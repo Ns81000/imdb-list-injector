@@ -20,7 +20,11 @@ export const Route = createFileRoute("/setup")({
 function SetupPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const status = useQuery({ queryKey: ["auth-status"], queryFn: () => getAuthStatus(), retry: false });
+  const status = useQuery({
+    queryKey: ["auth-status"],
+    queryFn: () => getAuthStatus(),
+    retry: false,
+  });
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [err, setErr] = useState("");

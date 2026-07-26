@@ -100,20 +100,22 @@ export const getMovie = createServerFn({ method: "GET" })
     return { movie: movie as Movie, appearsIn };
   });
 
-export const getSyncStatus = createServerFn({ method: "GET" }).handler(async (): Promise<{
-  latest: SyncStatusRow | null;
-  history: SyncStatusRow[];
-}> => {
-  await requireAuth();
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const res = await supabaseAdmin
-    .from("sync_log")
-    .select("synced_at,mode,lists_count,movies_count,status")
-    .order("synced_at", { ascending: false })
-    .limit(10);
-  const rows = (res.data ?? []) as unknown as SyncStatusRow[];
-  return { latest: rows[0] ?? null, history: rows };
-});
+export const getSyncStatus = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{
+    latest: SyncStatusRow | null;
+    history: SyncStatusRow[];
+  }> => {
+    await requireAuth();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const res = await supabaseAdmin
+      .from("sync_log")
+      .select("synced_at,mode,lists_count,movies_count,status")
+      .order("synced_at", { ascending: false })
+      .limit(10);
+    const rows = (res.data ?? []) as unknown as SyncStatusRow[];
+    return { latest: rows[0] ?? null, history: rows };
+  },
+);
 
 export const getStorageStats = createServerFn({ method: "GET" }).handler(async () => {
   await requireAuth();

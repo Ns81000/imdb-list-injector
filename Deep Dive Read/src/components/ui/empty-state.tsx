@@ -21,7 +21,9 @@ export function EmptyState({
       )}
       <div>
         <div className="title-md text-[var(--ink)]">{title}</div>
-        {description && <div className="body-sm mt-2 max-w-md text-[var(--muted)]">{description}</div>}
+        {description && (
+          <div className="body-sm mt-2 max-w-md text-[var(--muted)]">{description}</div>
+        )}
       </div>
       {action && <div className="mt-2">{action}</div>}
     </div>

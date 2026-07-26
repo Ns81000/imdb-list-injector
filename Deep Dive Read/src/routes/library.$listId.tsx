@@ -48,7 +48,8 @@ function ListDetail() {
     const ratings = movies.map((m) => parseRating(m.rating)).filter((x): x is number => x !== null);
     const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
     const genreCounts = new Map<string, number>();
-    for (const m of movies) for (const g of parseGenres(m.genre)) genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
+    for (const m of movies)
+      for (const g of parseGenres(m.genre)) genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
     const topGenre = [...genreCounts.entries()].sort((a, b) => b[1] - a[1])[0];
     const totalMins = movies.reduce((s, m) => s + parseDurationToMinutes(m.duration), 0);
     return { avg, topGenre, totalMins };
@@ -68,7 +69,8 @@ function ListDetail() {
   const filtered = useMemo(() => {
     let list = [...movies];
     if (typeFilter !== "all") list = list.filter((m) => m.type === typeFilter);
-    if (genreFilter !== "all") list = list.filter((m) => parseGenres(m.genre).includes(genreFilter));
+    if (genreFilter !== "all")
+      list = list.filter((m) => parseGenres(m.genre).includes(genreFilter));
     switch (sort) {
       case "title":
         list.sort((a, b) => a.title.localeCompare(b.title));
@@ -80,7 +82,9 @@ function ListDetail() {
         list.sort((a, b) => (primaryYear(b.year) ?? 0) - (primaryYear(a.year) ?? 0));
         break;
       case "duration":
-        list.sort((a, b) => parseDurationToMinutes(b.duration) - parseDurationToMinutes(a.duration));
+        list.sort(
+          (a, b) => parseDurationToMinutes(b.duration) - parseDurationToMinutes(a.duration),
+        );
         break;
       default:
         list.sort((a, b) => (a.position ?? 999999) - (b.position ?? 999999));
@@ -110,7 +114,10 @@ function ListDetail() {
 
   return (
     <PageShell>
-      <Link to="/library" className="mb-4 inline-flex items-center gap-1 body-sm text-[var(--muted)] hover:text-[var(--ink)]">
+      <Link
+        to="/library"
+        className="mb-4 inline-flex items-center gap-1 body-sm text-[var(--muted)] hover:text-[var(--ink)]"
+      >
         <ChevronLeftIcon size={16} /> Back to Library
       </Link>
       <h1 className="display-sm">{data.list.name}</h1>

@@ -21,7 +21,11 @@ function fromB64(s: string): Uint8Array {
   return out;
 }
 
-async function pbkdf2(password: string, salt: Uint8Array, iterations: number): Promise<ArrayBuffer> {
+async function pbkdf2(
+  password: string,
+  salt: Uint8Array,
+  iterations: number,
+): Promise<ArrayBuffer> {
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(password),

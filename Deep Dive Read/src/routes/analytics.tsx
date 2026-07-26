@@ -6,14 +6,15 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
+  ActorLeaderboard,
   ContentRatingDonut,
   DirectorLeaderboard,
-  GenreBars,
+  GenreRatingLeaderboard,
   KeywordCloud,
-  RatingHistogram,
+  QualityVsPopularity,
   RuntimeDistribution,
   TypeBars,
-  YearTimeline,
+  WriterLeaderboard,
 } from "@/components/charts";
 import { listMovies } from "@/lib/data.functions";
 import { useMode } from "@/hooks/use-mode";
@@ -65,36 +66,42 @@ function AnalyticsPage() {
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <h2 className="title-lg mb-4">Rating Distribution</h2>
-          <RatingHistogram movies={movies} />
+          <h2 className="title-lg mb-4">Quality vs Popularity</h2>
+          <QualityVsPopularity movies={movies} height={310} />
         </Card>
         <Card>
-          <h2 className="title-lg mb-4">Release Year</h2>
-          <YearTimeline movies={movies} />
+          <h2 className="title-lg mb-4">Highest Rated Genres</h2>
+          <GenreRatingLeaderboard movies={movies} top={5} />
         </Card>
         <Card>
           <h2 className="title-lg mb-4">Runtime</h2>
-          <RuntimeDistribution movies={movies} />
+          <RuntimeDistribution movies={movies} height={220} />
         </Card>
         <Card>
           <h2 className="title-lg mb-4">Content Rating</h2>
-          <ContentRatingDonut movies={movies} />
+          <ContentRatingDonut movies={movies} height={200} />
         </Card>
       </div>
-
-      <Card className="mt-6">
-        <h2 className="title-lg mb-4">Top Genres</h2>
-        <GenreBars movies={movies} top={20} height={520} />
-      </Card>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card>
           <h2 className="title-lg mb-4">Type</h2>
-          <TypeBars movies={movies} />
+          <TypeBars movies={movies} height={260} />
         </Card>
         <Card>
           <h2 className="title-lg mb-4">Director Leaderboard</h2>
-          <DirectorLeaderboard movies={movies} />
+          <DirectorLeaderboard movies={movies} top={5} />
+        </Card>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Card>
+          <h2 className="title-lg mb-4">Top Actors</h2>
+          <ActorLeaderboard movies={movies} top={10} />
+        </Card>
+        <Card>
+          <h2 className="title-lg mb-4">Top Writers</h2>
+          <WriterLeaderboard movies={movies} top={10} />
         </Card>
       </div>
 

@@ -21,19 +21,21 @@ async function delay(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export const getAuthStatus = createServerFn({ method: "GET" }).handler(async (): Promise<AuthStatus> => {
-  const { getSessionConfig } = await import("./auth.server");
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin
-    .from("app_settings")
-    .select("key,value")
-    .in("key", ["password_hash", "setup_complete"]);
-  const map = new Map((data ?? []).map((r) => [r.key, r.value]));
-  const setup = map.get("setup_complete") === "true" && Boolean(map.get("password_hash"));
-  const session = await useSession<SessionData>(getSessionConfig());
-  const authenticated = setup && Boolean(session.data.authenticated);
-  return { setup, authenticated };
-});
+export const getAuthStatus = createServerFn({ method: "GET" }).handler(
+  async (): Promise<AuthStatus> => {
+    const { getSessionConfig } = await import("./auth.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("app_settings")
+      .select("key,value")
+      .in("key", ["password_hash", "setup_complete"]);
+    const map = new Map((data ?? []).map((r) => [r.key, r.value]));
+    const setup = map.get("setup_complete") === "true" && Boolean(map.get("password_hash"));
+    const session = await useSession<SessionData>(getSessionConfig());
+    const authenticated = setup && Boolean(session.data.authenticated);
+    return { setup, authenticated };
+  },
+);
 
 export const setupPassword = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({ password: z.string().min(8).max(256) }).parse(data))

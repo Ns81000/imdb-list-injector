@@ -77,7 +77,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Zoom Out — Movie Library Analytics" },
       {
         name: "description",
-        content: "Your personal movie library analytics dashboard. Explore lists, ratings, credits and keywords from your saved IMDb titles.",
+        content:
+          "Your personal movie library analytics dashboard. Explore lists, ratings, credits and keywords from your saved IMDb titles.",
       },
       { name: "author", content: "Zoom Out" },
       { name: "theme-color", content: "#fffaf0" },

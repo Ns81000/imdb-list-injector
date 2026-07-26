@@ -13,7 +13,13 @@ interface SegmentedProps {
   className?: string;
 }
 
-export function SegmentedControl({ value, onChange, options, size = "md", className }: SegmentedProps) {
+export function SegmentedControl({
+  value,
+  onChange,
+  options,
+  size = "md",
+  className,
+}: SegmentedProps) {
   return (
     <div
       role="tablist"

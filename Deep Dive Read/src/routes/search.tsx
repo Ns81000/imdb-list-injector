@@ -15,9 +15,15 @@ export const Route = createFileRoute("/search")({
   head: () => ({
     meta: [
       { title: "Search — Zoom Out" },
-      { name: "description", content: "Search movies, keywords, credits and lists across your Zoom Out library." },
+      {
+        name: "description",
+        content: "Search movies, keywords, credits and lists across your Zoom Out library.",
+      },
       { property: "og:title", content: "Search — Zoom Out" },
-      { property: "og:description", content: "Search movies, keywords, credits and lists across your Zoom Out library." },
+      {
+        property: "og:description",
+        content: "Search movies, keywords, credits and lists across your Zoom Out library.",
+      },
     ],
   }),
   component: () => (
@@ -29,8 +35,14 @@ export const Route = createFileRoute("/search")({
 
 function SearchPage() {
   const { mode } = useMode();
-  const moviesQ = useQuery({ queryKey: ["movies", mode], queryFn: () => listMovies({ data: { mode } }) });
-  const listsQ = useQuery({ queryKey: ["lists", mode], queryFn: () => listLists({ data: { mode } }) });
+  const moviesQ = useQuery({
+    queryKey: ["movies", mode],
+    queryFn: () => listMovies({ data: { mode } }),
+  });
+  const listsQ = useQuery({
+    queryKey: ["lists", mode],
+    queryFn: () => listLists({ data: { mode } }),
+  });
   const [q, setQ] = useState("");
   const query = useDeferredValue(q).trim().toLowerCase();
 
@@ -44,7 +56,9 @@ function SearchPage() {
     );
     // dedupe movies by imdb_id
     const seen = new Set<string>();
-    const uniqueMovies = movies.filter((m) => (seen.has(m.imdb_id) ? false : (seen.add(m.imdb_id), true)));
+    const uniqueMovies = movies.filter((m) =>
+      seen.has(m.imdb_id) ? false : (seen.add(m.imdb_id), true),
+    );
     const lists = (listsQ.data ?? []).filter((l) => l.name.toLowerCase().includes(query));
     const kwCounts = new Map<string, number>();
     for (const m of moviesQ.data ?? []) {
@@ -77,7 +91,10 @@ function SearchPage() {
         <h1 className="display-md">Search</h1>
       </div>
       <div className="relative">
-        <SearchIcon size={20} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+        <SearchIcon
+          size={20}
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+        />
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -89,7 +106,11 @@ function SearchPage() {
 
       {!query && (
         <div className="mt-10">
-          <EmptyState title="Start typing" description="Search across movies, keywords, credits and lists." showLogo={false} />
+          <EmptyState
+            title="Start typing"
+            description="Search across movies, keywords, credits and lists."
+            showLogo={false}
+          />
         </div>
       )}
 
@@ -108,7 +129,9 @@ function SearchPage() {
                     className="flex items-center gap-3 py-3 hover:bg-[var(--surface-soft)]"
                   >
                     <div className="title-sm text-[var(--ink)]">{m.title}</div>
-                    <div className="ml-auto caption text-[var(--muted)]">{m.year} · {m.rating ?? "—"}</div>
+                    <div className="ml-auto caption text-[var(--muted)]">
+                      {m.year} · {m.rating ?? "—"}
+                    </div>
                   </Link>
                 ))}
               </div>
@@ -121,7 +144,9 @@ function SearchPage() {
             ) : (
               <div className="flex flex-wrap gap-2">
                 {results.keywords.slice(0, 30).map(([k, c]) => (
-                  <Pill key={k}>{k} · {c}</Pill>
+                  <Pill key={k}>
+                    {k} · {c}
+                  </Pill>
                 ))}
               </div>
             )}
@@ -135,7 +160,9 @@ function SearchPage() {
                 {results.people.slice(0, 12).map(([name, entry]) => (
                   <div key={name} className="flex items-center gap-3 py-3">
                     <div className="title-sm">{name}</div>
-                    <div className="ml-auto caption text-[var(--muted)]">{entry.role} · {entry.count}</div>
+                    <div className="ml-auto caption text-[var(--muted)]">
+                      {entry.role} · {entry.count}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -155,7 +182,9 @@ function SearchPage() {
                     className="flex items-center gap-3 py-3 hover:bg-[var(--surface-soft)]"
                   >
                     <div className="title-sm">{l.name}</div>
-                    <div className="ml-auto caption text-[var(--muted)]">{l.movie_count} titles</div>
+                    <div className="ml-auto caption text-[var(--muted)]">
+                      {l.movie_count} titles
+                    </div>
                   </Link>
                 ))}
               </div>

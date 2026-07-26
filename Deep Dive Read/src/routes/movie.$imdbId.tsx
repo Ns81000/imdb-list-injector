@@ -30,7 +30,10 @@ export const Route = createFileRoute("/movie/$imdbId")({
 
 function MovieDetail() {
   const { imdbId } = Route.useParams();
-  const q = useQuery({ queryKey: ["movie", imdbId], queryFn: () => getMovie({ data: { imdbId } }) });
+  const q = useQuery({
+    queryKey: ["movie", imdbId],
+    queryFn: () => getMovie({ data: { imdbId } }),
+  });
   const tmdb = useQuery({
     queryKey: ["tmdb-find", imdbId],
     queryFn: () => resolveImdb({ data: { imdbId } }),
@@ -49,7 +52,10 @@ function MovieDetail() {
   if (!q.data) {
     return (
       <PageShell>
-        <EmptyState title="Movie not found" description="It might have been removed from your library." />
+        <EmptyState
+          title="Movie not found"
+          description="It might have been removed from your library."
+        />
       </PageShell>
     );
   }
@@ -101,7 +107,10 @@ function MovieDetail() {
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {genres.map((g) => (
-                <span key={g} className="rounded-full bg-white/10 px-2.5 py-0.5 text-[12px] text-white">
+                <span
+                  key={g}
+                  className="rounded-full bg-white/10 px-2.5 py-0.5 text-[12px] text-white"
+                >
                   {g}
                 </span>
               ))}

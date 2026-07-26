@@ -9,11 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { changePassword, logout, getSessionInfo } from "@/lib/auth.functions";
-import {
-  clearAllData,
-  exportAllData,
-  getStorageStats,
-} from "@/lib/data.functions";
+import { clearAllData, exportAllData, getStorageStats } from "@/lib/data.functions";
 import { relativeTime } from "@/lib/utils";
 import { statusColor, useSyncStatus } from "@/hooks/use-sync-status";
 
@@ -102,17 +98,37 @@ function SettingsPage() {
             className="mt-6 space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
-              if (next.length < 8) return toast.show("Password must be at least 8 characters", "error");
+              if (next.length < 8)
+                return toast.show("Password must be at least 8 characters", "error");
               if (next !== confirm) return toast.show("Passwords do not match", "error");
               change.mutate();
             }}
           >
-            <Input placeholder="Current password" type="password" value={cur} onChange={(e) => setCur(e.target.value)} />
-            <Input placeholder="New password" type="password" value={next} onChange={(e) => setNext(e.target.value)} />
-            <Input placeholder="Confirm new password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+            <Input
+              placeholder="Current password"
+              type="password"
+              value={cur}
+              onChange={(e) => setCur(e.target.value)}
+            />
+            <Input
+              placeholder="New password"
+              type="password"
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+            />
+            <Input
+              placeholder="Confirm new password"
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
             <div className="flex gap-2">
-              <Button type="submit" disabled={change.isPending}>Change password</Button>
-              <Button type="button" variant="ghost" onClick={() => doLogout.mutate()}>Sign out</Button>
+              <Button type="submit" disabled={change.isPending}>
+                Change password
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => doLogout.mutate()}>
+                Sign out
+              </Button>
             </div>
           </form>
         </Card>
@@ -165,15 +181,20 @@ function SettingsPage() {
             <Stat label="Movies" value={stats.data?.movies ?? 0} />
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={doExport}>Export JSON</Button>
-            <Button variant="danger" onClick={() => setClearOpen(true)}>Clear all data</Button>
+            <Button variant="secondary" onClick={doExport}>
+              Export JSON
+            </Button>
+            <Button variant="danger" onClick={() => setClearOpen(true)}>
+              Clear all data
+            </Button>
           </div>
         </Card>
 
         <Card>
           <h2 className="title-lg">About</h2>
           <p className="mt-3 body-sm text-[var(--body)]">
-            Zoom Out — Personal movie library analytics dashboard, paired with the Zoom Out Chrome extension.
+            Zoom Out — Personal movie library analytics dashboard, paired with the Zoom Out Chrome
+            extension.
           </p>
           <p className="mt-2 caption text-[var(--muted)]">Version 1.0</p>
         </Card>
@@ -208,7 +229,8 @@ function SettingsPage() {
         }
       >
         <p className="body-sm text-[var(--body)]">
-          This deletes all lists, movies, and sync history. Your password and account settings remain. This can't be undone.
+          This deletes all lists, movies, and sync history. Your password and account settings
+          remain. This can't be undone.
         </p>
         <div className="mt-4">
           <Input

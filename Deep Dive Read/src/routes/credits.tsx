@@ -18,9 +18,15 @@ export const Route = createFileRoute("/credits")({
   head: () => ({
     meta: [
       { title: "Credits — Zoom Out" },
-      { name: "description", content: "All the directors, writers, producers and cast across your library." },
+      {
+        name: "description",
+        content: "All the directors, writers, producers and cast across your library.",
+      },
       { property: "og:title", content: "Credits — Zoom Out" },
-      { property: "og:description", content: "All the directors, writers, producers and cast across your library." },
+      {
+        property: "og:description",
+        content: "All the directors, writers, producers and cast across your library.",
+      },
     ],
   }),
   component: () => (
@@ -75,7 +81,10 @@ function CreditsPage() {
   if (movies.length === 0) {
     return (
       <PageShell>
-        <EmptyState title="No credits yet" description="Save some lists to see the people behind them." />
+        <EmptyState
+          title="No credits yet"
+          description="Save some lists to see the people behind them."
+        />
       </PageShell>
     );
   }
@@ -100,13 +109,21 @@ function CreditsPage() {
       />
       {people.length === 0 ? (
         <div className="mt-8">
-          <EmptyState title="No credits scraped" description={`No ${role.toLowerCase()} data in your library yet.`} />
+          <EmptyState
+            title="No credits scraped"
+            description={`No ${role.toLowerCase()} data in your library yet.`}
+          />
         </div>
       ) : (
         <>
           <div className="mt-6 grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
             {shown.map(([name, entry]) => (
-              <PersonCard key={name} name={name} count={entry.count} onClick={() => setSelected(name)} />
+              <PersonCard
+                key={name}
+                name={name}
+                count={entry.count}
+                onClick={() => setSelected(name)}
+              />
             ))}
           </div>
           {!showAll && people.length > 30 && (

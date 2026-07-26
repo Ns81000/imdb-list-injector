@@ -5,13 +5,7 @@ import { MobileTopBar } from "./mobile-top-bar";
 import { AmbientBackground } from "@/components/ui/ambient-background";
 import { cn } from "@/lib/utils";
 
-export function PageShell({
-  children,
-  wide,
-}: {
-  children: ReactNode;
-  wide?: boolean;
-}) {
+export function PageShell({ children, wide }: { children: ReactNode; wide?: boolean }) {
   return (
     <div className="relative min-h-screen bg-[var(--canvas)] selection:bg-[#ff4d8b]/20 selection:text-[var(--ink)]">
       <AmbientBackground />

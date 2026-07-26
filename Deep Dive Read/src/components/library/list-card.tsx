@@ -67,16 +67,31 @@ export function ListCard({ list, movies = [] }: ListCardProps) {
       className="group relative flex flex-col justify-between overflow-hidden rounded-[20px] border border-[var(--hairline)] bg-[var(--surface-card)] p-5 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-md hover:border-[var(--hairline-soft)] active:scale-[0.98]"
     >
       {/* Top Brand Accent Bar */}
-      <div className={cn("absolute inset-x-0 top-0 h-1 opacity-90 transition-opacity group-hover:opacity-100", style.bar)} />
+      <div
+        className={cn(
+          "absolute inset-x-0 top-0 h-1 opacity-90 transition-opacity group-hover:opacity-100",
+          style.bar,
+        )}
+      />
 
       <div>
         <div className="flex items-start justify-between gap-3 pt-1 mb-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105", style.badge)}>
+            <div
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105",
+                style.badge,
+              )}
+            >
               <Film size={18} />
             </div>
             <div className="min-w-0">
-              <div className={cn("title-sm font-bold text-[var(--ink)] transition-colors truncate", style.textHover)}>
+              <div
+                className={cn(
+                  "title-sm font-bold text-[var(--ink)] transition-colors truncate",
+                  style.textHover,
+                )}
+              >
                 {list.name}
               </div>
               <div className="caption text-xs text-[var(--muted)] mt-0.5">
@@ -94,8 +109,15 @@ export function ListCard({ list, movies = [] }: ListCardProps) {
           {bins.map((b, i) => (
             <div
               key={i}
-              className={cn("flex-1 rounded-t transition-opacity group-hover:opacity-100", style.bar)}
-              style={{ height: `${(b / maxBin) * 100}%`, minHeight: 2, opacity: 0.35 + (i / 4) * 0.65 }}
+              className={cn(
+                "flex-1 rounded-t transition-opacity group-hover:opacity-100",
+                style.bar,
+              )}
+              style={{
+                height: `${(b / maxBin) * 100}%`,
+                minHeight: 2,
+                opacity: 0.35 + (i / 4) * 0.65,
+              }}
             />
           ))}
         </div>
@@ -103,7 +125,10 @@ export function ListCard({ list, movies = [] }: ListCardProps) {
 
       <div className="flex items-center justify-between border-t border-[var(--hairline-soft)] pt-3 mt-2 text-xs font-medium text-[var(--muted)]">
         <span>View list analytics</span>
-        <ChevronRight size={15} className="text-[var(--muted-soft)] transition-transform duration-200 group-hover:translate-x-1 group-hover:text-[var(--ink)]" />
+        <ChevronRight
+          size={15}
+          className="text-[var(--muted-soft)] transition-transform duration-200 group-hover:translate-x-1 group-hover:text-[var(--ink)]"
+        />
       </div>
     </Link>
   );

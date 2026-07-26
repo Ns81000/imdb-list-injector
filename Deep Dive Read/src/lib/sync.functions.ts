@@ -9,7 +9,10 @@ const MAX_MOVIES_PER_LIST = 5_000;
 const MAX_LISTS = 500;
 
 const strField = (max: number) =>
-  z.preprocess((val) => (val == null ? null : String(val)), z.string().max(max).nullable().optional());
+  z.preprocess(
+    (val) => (val == null ? null : String(val)),
+    z.string().max(max).nullable().optional(),
+  );
 
 const movieSchema = z.object({
   imdb_id: z.string().min(1).max(32),

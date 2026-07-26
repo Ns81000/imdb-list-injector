@@ -20,7 +20,11 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const status = useQuery({ queryKey: ["auth-status"], queryFn: () => getAuthStatus(), retry: false });
+  const status = useQuery({
+    queryKey: ["auth-status"],
+    queryFn: () => getAuthStatus(),
+    retry: false,
+  });
   const [password, setPassword] = useState("");
   const [shake, setShake] = useState(false);
   const [error, setError] = useState("");

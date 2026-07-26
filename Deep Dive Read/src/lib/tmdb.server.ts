@@ -157,7 +157,8 @@ export async function tmdbSearchPerson(name: string): Promise<TmdbPersonResult> 
 // Only TMDB's documented image path shapes are allowed. This blocks arbitrary
 // path traversal, hides host-side error details, and prevents the proxy from
 // being abused as a generic image relay against TMDB's CDN.
-const TMDB_IMAGE_PATH = /^(?:original|w45|w92|w154|w185|w300|w342|w500|w780|w1280|h632)\/[A-Za-z0-9]{5,}\.(?:jpg|png|webp)$/;
+const TMDB_IMAGE_PATH =
+  /^(?:original|w45|w92|w154|w185|w300|w342|w500|w780|w1280|h632)\/[A-Za-z0-9]{5,}\.(?:jpg|png|webp)$/;
 
 export async function tmdbImageProxy(path: string): Promise<Response> {
   const clean = path.replace(/^\/+/, "");

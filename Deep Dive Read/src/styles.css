@@ -59,8 +59,9 @@
   --radius-pill: 9999px;
 
   /* Fonts */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
 }
 
 :root {
@@ -168,32 +169,52 @@
   font-weight: 500;
   line-height: 1;
   letter-spacing: -1.25px;
-  @media (min-width: 768px) { font-size: 56px; letter-spacing: -2px; }
-  @media (min-width: 1024px) { font-size: 72px; letter-spacing: -2.5px; }
+  @media (min-width: 768px) {
+    font-size: 56px;
+    letter-spacing: -2px;
+  }
+  @media (min-width: 1024px) {
+    font-size: 72px;
+    letter-spacing: -2.5px;
+  }
 }
 @utility display-lg {
   font-size: 28px;
   font-weight: 500;
   line-height: 1.05;
   letter-spacing: -1px;
-  @media (min-width: 768px) { font-size: 40px; }
-  @media (min-width: 1024px) { font-size: 56px; }
+  @media (min-width: 768px) {
+    font-size: 40px;
+  }
+  @media (min-width: 1024px) {
+    font-size: 56px;
+  }
 }
 @utility display-md {
   font-size: 24px;
   font-weight: 500;
   line-height: 1.1;
   letter-spacing: -0.5px;
-  @media (min-width: 768px) { font-size: 32px; }
-  @media (min-width: 1024px) { font-size: 40px; letter-spacing: -1px; }
+  @media (min-width: 768px) {
+    font-size: 32px;
+  }
+  @media (min-width: 1024px) {
+    font-size: 40px;
+    letter-spacing: -1px;
+  }
 }
 @utility display-sm {
   font-size: 22px;
   font-weight: 500;
   line-height: 1.15;
   letter-spacing: -0.4px;
-  @media (min-width: 768px) { font-size: 28px; }
-  @media (min-width: 1024px) { font-size: 32px; letter-spacing: -0.5px; }
+  @media (min-width: 768px) {
+    font-size: 28px;
+  }
+  @media (min-width: 1024px) {
+    font-size: 32px;
+    letter-spacing: -0.5px;
+  }
 }
 @utility title-lg {
   font-size: 24px;
@@ -236,7 +257,7 @@
 @utility button-label {
   font-size: 14px;
   font-weight: 600;
-  line-height: 1.0;
+  line-height: 1;
 }
 @utility nav-link {
   font-size: 14px;
@@ -248,33 +269,70 @@
    Animations
    ========================================================================== */
 @keyframes zo-shake {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-4px); }
-  40%, 80% { transform: translateX(4px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
 }
-.zo-shake { animation: zo-shake 300ms ease-in-out; }
+.zo-shake {
+  animation: zo-shake 300ms ease-in-out;
+}
 
 @keyframes zo-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
-.zo-fade-in { animation: zo-fade-in 200ms ease-out; }
+.zo-fade-in {
+  animation: zo-fade-in 200ms ease-out;
+}
 
 @keyframes zo-scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
-.zo-scale-in { animation: zo-scale-in 200ms ease-out; }
+.zo-scale-in {
+  animation: zo-scale-in 200ms ease-out;
+}
 
 @keyframes zo-slide-up {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.zo-slide-up { animation: zo-slide-up 200ms ease-out; }
+.zo-slide-up {
+  animation: zo-slide-up 200ms ease-out;
+}
 
 @keyframes zo-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 .zo-skeleton {
   background: linear-gradient(
@@ -288,32 +346,67 @@
 }
 
 @keyframes zo-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
-.zo-pulse { animation: zo-pulse 1.4s ease-in-out infinite; }
+.zo-pulse {
+  animation: zo-pulse 1.4s ease-in-out infinite;
+}
 
 @keyframes zo-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
-.zo-float { animation: zo-float 4s ease-in-out infinite; }
+.zo-float {
+  animation: zo-float 4s ease-in-out infinite;
+}
 
 @keyframes orb-float-1 {
-  0%, 100% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(60px, 40px) scale(1.12); }
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  50% {
+    transform: translate(60px, 40px) scale(1.12);
+  }
 }
 @keyframes orb-float-2 {
-  0%, 100% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(-50px, -50px) scale(1.15); }
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  50% {
+    transform: translate(-50px, -50px) scale(1.15);
+  }
 }
 @keyframes orb-float-3 {
-  0%, 100% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(45px, -35px) scale(1.1); }
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  50% {
+    transform: translate(45px, -35px) scale(1.1);
+  }
 }
-.animate-orb-1 { animation: orb-float-1 18s ease-in-out infinite; }
-.animate-orb-2 { animation: orb-float-2 22s ease-in-out infinite; }
-.animate-orb-3 { animation: orb-float-3 20s ease-in-out infinite; }
+.animate-orb-1 {
+  animation: orb-float-1 18s ease-in-out infinite;
+}
+.animate-orb-2 {
+  animation: orb-float-2 22s ease-in-out infinite;
+}
+.animate-orb-3 {
+  animation: orb-float-3 20s ease-in-out infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,

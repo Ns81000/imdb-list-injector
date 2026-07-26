@@ -28,9 +28,15 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Dashboard — Zoom Out" },
-      { name: "description", content: "Overview of your saved movies: totals, ratings, genres, and runtime." },
+      {
+        name: "description",
+        content: "Overview of your saved movies: totals, ratings, genres, and runtime.",
+      },
       { property: "og:title", content: "Dashboard — Zoom Out" },
-      { property: "og:description", content: "Overview of your saved movies: totals, ratings, genres, and runtime." },
+      {
+        property: "og:description",
+        content: "Overview of your saved movies: totals, ratings, genres, and runtime.",
+      },
     ],
   }),
   component: () => (
@@ -80,8 +86,14 @@ const brandAccentMap: Record<BrandColor, { badge: string; textHover: string; bar
 
 function Dashboard() {
   const { mode } = useMode();
-  const listsQ = useQuery({ queryKey: ["lists", mode], queryFn: () => listLists({ data: { mode } }) });
-  const moviesQ = useQuery({ queryKey: ["movies", mode], queryFn: () => listMovies({ data: { mode } }) });
+  const listsQ = useQuery({
+    queryKey: ["lists", mode],
+    queryFn: () => listLists({ data: { mode } }),
+  });
+  const moviesQ = useQuery({
+    queryKey: ["movies", mode],
+    queryFn: () => listMovies({ data: { mode } }),
+  });
   const { latest, status } = useSyncStatus();
 
   const lists = listsQ.data ?? [];
@@ -92,7 +104,8 @@ function Dashboard() {
     const ratings = movies.map((m) => parseRating(m.rating)).filter((r): r is number => r !== null);
     const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
     const genreCounts = new Map<string, number>();
-    for (const m of movies) for (const g of parseGenres(m.genre)) genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
+    for (const m of movies)
+      for (const g of parseGenres(m.genre)) genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
     const topGenre = [...genreCounts.entries()].sort((a, b) => b[1] - a[1])[0];
     const totalMins = movies.reduce((a, m) => a + parseDurationToMinutes(m.duration), 0);
     const keywords = new Set<string>();
@@ -238,16 +251,31 @@ function Dashboard() {
                 className="group relative flex flex-col justify-between overflow-hidden rounded-[20px] border border-[var(--hairline)] bg-[var(--surface-card)] p-5 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-md hover:border-[var(--hairline-soft)] active:scale-[0.98]"
               >
                 {/* Top Brand Accent Bar */}
-                <div className={cn("absolute inset-x-0 top-0 h-1 opacity-90 transition-opacity group-hover:opacity-100", style.bar)} />
+                <div
+                  className={cn(
+                    "absolute inset-x-0 top-0 h-1 opacity-90 transition-opacity group-hover:opacity-100",
+                    style.bar,
+                  )}
+                />
 
                 <div>
                   <div className="flex items-center justify-between gap-3 pt-1 mb-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105", style.badge)}>
+                      <div
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105",
+                          style.badge,
+                        )}
+                      >
                         <Film size={18} />
                       </div>
                       <div className="min-w-0">
-                        <div className={cn("title-sm font-bold text-[var(--ink)] transition-colors truncate", style.textHover)}>
+                        <div
+                          className={cn(
+                            "title-sm font-bold text-[var(--ink)] transition-colors truncate",
+                            style.textHover,
+                          )}
+                        >
                           {l.name}
                         </div>
                         <div className="caption text-xs text-[var(--muted)] mt-0.5">
@@ -265,8 +293,15 @@ function Dashboard() {
                     {bins.map((b, i) => (
                       <div
                         key={i}
-                        className={cn("flex-1 rounded-t transition-opacity group-hover:opacity-100", style.bar)}
-                        style={{ height: `${(b / maxBin) * 100}%`, minHeight: 2, opacity: 0.35 + (i / 4) * 0.65 }}
+                        className={cn(
+                          "flex-1 rounded-t transition-opacity group-hover:opacity-100",
+                          style.bar,
+                        )}
+                        style={{
+                          height: `${(b / maxBin) * 100}%`,
+                          minHeight: 2,
+                          opacity: 0.35 + (i / 4) * 0.65,
+                        }}
                       />
                     ))}
                   </div>
@@ -274,7 +309,10 @@ function Dashboard() {
 
                 <div className="flex items-center justify-between border-t border-[var(--hairline-soft)] pt-3 mt-2 text-xs font-medium text-[var(--muted)]">
                   <span>View list analytics</span>
-                  <ChevronRight size={15} className="text-[var(--muted-soft)] transition-transform duration-200 group-hover:translate-x-1 group-hover:text-[var(--ink)]" />
+                  <ChevronRight
+                    size={15}
+                    className="text-[var(--muted-soft)] transition-transform duration-200 group-hover:translate-x-1 group-hover:text-[var(--ink)]"
+                  />
                 </div>
               </Link>
             );

@@ -12,10 +12,20 @@ interface Tab {
 
 const tabs: Tab[] = [
   { to: "/", label: "Home", Icon: HomeIcon, matches: (p) => p === "/" },
-  { to: "/library", label: "Library", Icon: LibraryIcon, matches: (p) => p.startsWith("/library") || p.startsWith("/movie") },
+  {
+    to: "/library",
+    label: "Library",
+    Icon: LibraryIcon,
+    matches: (p) => p.startsWith("/library") || p.startsWith("/movie"),
+  },
   { to: "/search", label: "Search", Icon: SearchIcon },
   { to: "/credits", label: "Credits", Icon: CreditsIcon },
-  { to: "/settings", label: "More", Icon: MoreIcon, matches: (p) => p.startsWith("/settings") || p.startsWith("/analytics") },
+  {
+    to: "/settings",
+    label: "More",
+    Icon: MoreIcon,
+    matches: (p) => p.startsWith("/settings") || p.startsWith("/analytics"),
+  },
 ];
 
 export function MobileTabBar() {

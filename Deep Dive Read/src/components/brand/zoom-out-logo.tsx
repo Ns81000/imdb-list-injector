@@ -40,7 +40,16 @@ export function ZoomOutIcon({ size = 32, className }: { size?: number; className
       className={className}
     >
       <rect x={0} y={0} width={128} height={128} rx={28} fill="#fffaf0" />
-      <rect x={1.5} y={1.5} width={125} height={125} rx={26.5} fill="none" stroke="#e5e5e5" strokeWidth={3} />
+      <rect
+        x={1.5}
+        y={1.5}
+        width={125}
+        height={125}
+        rx={26.5}
+        fill="none"
+        stroke="#e5e5e5"
+        strokeWidth={3}
+      />
       <g stroke="#0a0a0a" strokeWidth={10} strokeLinecap="round" fill="none">
         <path d="M40 20 H30 a10 10 0 0 0 -10 10 V40" />
         <path d="M88 20 H98 a10 10 0 0 1 10 10 V40" />

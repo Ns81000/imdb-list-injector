@@ -25,13 +25,17 @@ const variants: Record<Variant, string> = {
     "bg-[var(--canvas)] text-[var(--ink)] border border-[var(--hairline)] hover:bg-[var(--surface-soft)] disabled:text-[var(--muted-soft)]",
   ghost:
     "bg-transparent text-[var(--ink)] hover:bg-[var(--surface-soft)] disabled:text-[var(--muted-soft)]",
-  onColor:
-    "bg-[var(--canvas)] text-[var(--ink)] hover:bg-[var(--surface-soft)]",
-  danger:
-    "bg-[var(--error)] text-white hover:opacity-90",
+  onColor: "bg-[var(--canvas)] text-[var(--ink)] hover:bg-[var(--surface-soft)]",
+  danger: "bg-[var(--error)] text-white hover:opacity-90",
 };
 
-export function Button({ variant = "primary", size = "md", className, children, ...rest }: ButtonProps) {
+export function Button({
+  variant = "primary",
+  size = "md",
+  className,
+  children,
+  ...rest
+}: ButtonProps) {
   return (
     <button className={cn(base, sizes[size], variants[variant], className)} {...rest}>
       {children}

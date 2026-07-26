@@ -35,26 +35,22 @@ export function StatCard({
   const eyebrowColor = isDark
     ? "text-white/80"
     : isSurface
-    ? "text-[var(--muted)]"
-    : "text-black/60";
+      ? "text-[var(--muted)]"
+      : "text-black/60";
 
-  const valueColor = isDark
-    ? "text-white"
-    : isSurface
-    ? "text-[var(--ink)]"
-    : "text-black/90";
+  const valueColor = isDark ? "text-white" : isSurface ? "text-[var(--ink)]" : "text-black/90";
 
   const subtitleColor = isDark
     ? "text-white/80"
     : isSurface
-    ? "text-[var(--muted)]"
-    : "text-black/70";
+      ? "text-[var(--muted)]"
+      : "text-black/70";
 
   const badgeBg = isDark
     ? "bg-white/20 text-white"
     : isSurface
-    ? "bg-[var(--surface-strong)] text-[var(--ink)]"
-    : "bg-black/10 text-black/80";
+      ? "bg-[var(--surface-strong)] text-[var(--ink)]"
+      : "bg-black/10 text-black/80";
 
   return (
     <div
@@ -63,23 +59,38 @@ export function StatCard({
         "transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]",
         "hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]",
         colorMap[color],
-        className
+        className,
       )}
     >
       {/* Header: Eyebrow + Icon Badge */}
       <div className="flex items-center justify-between gap-2 mb-2">
-        <span className={cn("caption-upper text-[11px] font-bold tracking-wider truncate", eyebrowColor)}>
+        <span
+          className={cn(
+            "caption-upper text-[11px] font-bold tracking-wider truncate",
+            eyebrowColor,
+          )}
+        >
           {eyebrow}
         </span>
         {Icon && (
-          <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110", badgeBg)}>
+          <div
+            className={cn(
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110",
+              badgeBg,
+            )}
+          >
             <Icon size={15} />
           </div>
         )}
       </div>
 
       {/* Stat Value */}
-      <div className={cn("my-1 text-2xl font-bold tracking-tight sm:text-3xl whitespace-nowrap overflow-hidden text-ellipsis", valueColor)}>
+      <div
+        className={cn(
+          "my-1 text-2xl font-bold tracking-tight sm:text-3xl whitespace-nowrap overflow-hidden text-ellipsis",
+          valueColor,
+        )}
+      >
         {value}
       </div>
 
@@ -92,5 +103,3 @@ export function StatCard({
     </div>
   );
 }
-
-

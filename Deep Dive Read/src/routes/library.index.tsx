@@ -30,8 +30,14 @@ export const Route = createFileRoute("/library/")({
 
 function LibraryPage() {
   const { mode } = useMode();
-  const listsQ = useQuery({ queryKey: ["lists", mode], queryFn: () => listLists({ data: { mode } }) });
-  const moviesQ = useQuery({ queryKey: ["movies", mode], queryFn: () => listMovies({ data: { mode } }) });
+  const listsQ = useQuery({
+    queryKey: ["lists", mode],
+    queryFn: () => listLists({ data: { mode } }),
+  });
+  const moviesQ = useQuery({
+    queryKey: ["movies", mode],
+    queryFn: () => listMovies({ data: { mode } }),
+  });
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("recent");
 
@@ -46,7 +52,9 @@ function LibraryPage() {
   }, [moviesQ.data]);
 
   const filtered = useMemo(() => {
-    const list = [...(listsQ.data ?? [])].filter((l) => l.name.toLowerCase().includes(q.toLowerCase()));
+    const list = [...(listsQ.data ?? [])].filter((l) =>
+      l.name.toLowerCase().includes(q.toLowerCase()),
+    );
     switch (sort) {
       case "name":
         list.sort((a, b) => a.name.localeCompare(b.name));
@@ -110,10 +118,10 @@ function LibraryPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           title="No lists found"
-          description={q ? "Try clearing your search term." : "Import your first IMDb list to start."}
-          action={
-            q ? { label: "Clear search", onClick: () => setQ("") } : undefined
+          description={
+            q ? "Try clearing your search term." : "Import your first IMDb list to start."
           }
+          action={q ? { label: "Clear search", onClick: () => setQ("") } : undefined}
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
