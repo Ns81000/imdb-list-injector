@@ -8,11 +8,15 @@ import { EmptyState } from "@/components/ui/empty-state";
 import {
   ActorLeaderboard,
   ContentRatingDonut,
+  DecadeBreakdown,
+  DirectorActorDuos,
   DirectorLeaderboard,
   GenreRatingLeaderboard,
   KeywordCloud,
+  ProducerLeaderboard,
   QualityVsPopularity,
   RuntimeDistribution,
+  RuntimeSweetSpot,
   TypeBars,
   WriterLeaderboard,
 } from "@/components/charts";
@@ -74,12 +78,23 @@ function AnalyticsPage() {
           <GenreRatingLeaderboard movies={movies} top={5} />
         </Card>
         <Card>
-          <h2 className="title-lg mb-4">Runtime</h2>
+          <h2 className="title-lg mb-4">Runtime Breakdown</h2>
           <RuntimeDistribution movies={movies} height={220} />
         </Card>
         <Card>
           <h2 className="title-lg mb-4">Content Rating</h2>
           <ContentRatingDonut movies={movies} height={200} />
+        </Card>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Card>
+          <h2 className="title-lg mb-4">Decade Timeline</h2>
+          <DecadeBreakdown movies={movies} height={260} />
+        </Card>
+        <Card>
+          <h2 className="title-lg mb-4">Runtime Score Sweet Spot</h2>
+          <RuntimeSweetSpot movies={movies} height={260} />
         </Card>
       </div>
 
@@ -97,11 +112,22 @@ function AnalyticsPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card>
           <h2 className="title-lg mb-4">Top Actors</h2>
-          <ActorLeaderboard movies={movies} top={10} />
+          <ActorLeaderboard movies={movies} top={5} />
         </Card>
         <Card>
+          <h2 className="title-lg mb-4">Director & Actor Power Duos</h2>
+          <DirectorActorDuos movies={movies} top={5} />
+        </Card>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Card>
           <h2 className="title-lg mb-4">Top Writers</h2>
-          <WriterLeaderboard movies={movies} top={10} />
+          <WriterLeaderboard movies={movies} top={5} />
+        </Card>
+        <Card>
+          <h2 className="title-lg mb-4">Top Producers</h2>
+          <ProducerLeaderboard movies={movies} top={5} />
         </Card>
       </div>
 

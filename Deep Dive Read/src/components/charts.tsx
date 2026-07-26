@@ -527,6 +527,38 @@ export function WriterLeaderboard({ movies, top = 15 }: { movies: Movie[]; top?:
   );
 }
 
+export function ProducerLeaderboard({ movies, top = 5 }: { movies: Movie[]; top?: number }) {
+  const list = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const m of movies) {
+      for (const p of m.credits?.Producers ?? []) {
+        counts.set(p, (counts.get(p) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, top);
+  }, [movies, top]);
+  const max = list[0]?.[1] ?? 1;
+  return (
+    <div className="flex flex-col divide-y divide-[var(--hairline-soft)]">
+      {list.map(([name, count], i) => (
+        <div key={name} className="flex items-center gap-4 py-3">
+          <div className="w-6 text-right caption text-[var(--muted-soft)]">{i + 1}</div>
+          <div className="flex-1">
+            <div className="title-sm text-[var(--ink)]">{name}</div>
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-soft)]">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${(count / max) * 100}%`, backgroundColor: brand.lavender }}
+              />
+            </div>
+          </div>
+          <div className="caption text-[var(--muted)]">{count}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function QualityVsPopularity({
   movies,
   height = 310,
@@ -679,5 +711,206 @@ export function GenreRatingLeaderboard({ movies, top = 5 }: { movies: Movie[]; t
         );
       })}
     </div>
+  );
+}
+
+export function RuntimeSweetSpot({ movies, height = 260 }: { movies: Movie[]; height?: number }) {
+  const data = useMemo(() => {
+    const buckets = [
+      { label: "<60m", min: 0, max: 60, count: 0, totalRating: 0 },
+      { label: "60–90m", min: 60, max: 90, count: 0, totalRating: 0 },
+      { label: "90–120m", min: 90, max: 120, count: 0, totalRating: 0 },
+      { label: "120–150m", min: 120, max: 150, count: 0, totalRating: 0 },
+      { label: "150–180m", min: 150, max: 180, count: 0, totalRating: 0 },
+      { label: "180m+", min: 180, max: Infinity, count: 0, totalRating: 0 },
+    ];
+    for (const m of movies) {
+      const mins = parseDurationToMinutes(m.duration);
+      const r = parseRating(m.rating);
+      if (mins <= 0 || r === null) continue;
+      const b = buckets.find((x) => mins >= x.min && mins < x.max);
+      if (b) {
+        b.count++;
+        b.totalRating += r;
+      }
+    }
+    return buckets
+      .filter((b) => b.count > 0)
+      .map((b) => ({
+        label: b.label,
+        avgRating: Number((b.totalRating / b.count).toFixed(2)),
+        count: b.count,
+      }));
+  }, [movies]);
+
+  if (data.length === 0) return null;
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: -20 }}>
+        <XAxis
+          dataKey="label"
+          stroke="var(--muted-soft)"
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis
+          domain={[5, 10]}
+          stroke="var(--muted-soft)"
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+        />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          itemStyle={itemStyle}
+          labelStyle={labelStyle}
+          cursor={false}
+          formatter={(value: any) => [`${value} avg rating`, "Score"]}
+        />
+        <Bar dataKey="avgRating" radius={[6, 6, 0, 0]}>
+          {data.map((_d, i) => (
+            <Cell key={i} fill={palette[(i + 2) % palette.length]} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function DirectorActorDuos({ movies, top = 5 }: { movies: Movie[]; top?: number }) {
+  const duos = useMemo(() => {
+    const counts = new Map<
+      string,
+      { director: string; actor: string; count: number; titles: string[] }
+    >();
+    for (const m of movies) {
+      const directors = m.credits?.Director ?? [];
+      const actors = m.credits?.Cast ?? [];
+      for (const d of directors) {
+        for (const a of actors) {
+          if (d === a) continue;
+          const key = `${d} + ${a}`;
+          const curr = counts.get(key) || { director: d, actor: a, count: 0, titles: [] };
+          curr.count++;
+          if (!curr.titles.includes(m.title)) curr.titles.push(m.title);
+          counts.set(key, curr);
+        }
+      }
+    }
+    return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, top);
+  }, [movies, top]);
+
+  if (duos.length === 0) return null;
+
+  const max = duos[0]?.count ?? 1;
+
+  return (
+    <div className="flex flex-col divide-y divide-[var(--hairline-soft)]">
+      {duos.map((item, i) => {
+        const percentage = (item.count / max) * 100;
+        const color = palette[i % palette.length];
+        return (
+          <div key={`${item.director}-${item.actor}`} className="flex flex-col py-2.5 gap-1">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-4 text-right caption text-[var(--muted-soft)] font-mono">
+                  {i + 1}
+                </span>
+                <div className="truncate text-xs">
+                  <span className="font-semibold text-[var(--ink)]">{item.director}</span>
+                  <span className="text-[var(--muted-soft)] mx-1">&</span>
+                  <span className="text-[var(--body)]">{item.actor}</span>
+                </div>
+              </div>
+              <span className="rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[10px] text-[var(--muted)] font-mono shrink-0">
+                {item.count} movie{item.count === 1 ? "" : "s"}
+              </span>
+            </div>
+            <div className="ml-6 flex items-center gap-3">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-soft)]">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${percentage}%`, backgroundColor: color }}
+                />
+              </div>
+              <span
+                className="caption text-[11px] text-[var(--muted-soft)] truncate max-w-[130px]"
+                title={item.titles.join(", ")}
+              >
+                {item.titles[0]}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function DecadeBreakdown({ movies, height = 260 }: { movies: Movie[]; height?: number }) {
+  const data = useMemo(() => {
+    const decs = new Map<string, { decade: string; count: number; totalRating: number }>();
+    for (const m of movies) {
+      const y = primaryYear(m.year);
+      const r = parseRating(m.rating);
+      if (y === null) continue;
+      const decadeNum = Math.floor(y / 10) * 10;
+      if (decadeNum < 1920) continue;
+      const decadeStr = `${decadeNum}s`;
+
+      const curr = decs.get(decadeStr) || { decade: decadeStr, count: 0, totalRating: 0 };
+      curr.count++;
+      if (r !== null) curr.totalRating += r;
+      decs.set(decadeStr, curr);
+    }
+
+    return [...decs.values()]
+      .sort((a, b) => a.decade.localeCompare(b.decade))
+      .map((d) => ({
+        decade: d.decade,
+        count: d.count,
+        avgRating:
+          d.count > 0 && d.totalRating > 0 ? Number((d.totalRating / d.count).toFixed(1)) : 0,
+      }));
+  }, [movies]);
+
+  if (data.length === 0) return null;
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: -20 }}>
+        <XAxis
+          dataKey="decade"
+          stroke="var(--muted-soft)"
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis
+          stroke="var(--muted-soft)"
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+          allowDecimals={false}
+        />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          itemStyle={itemStyle}
+          labelStyle={labelStyle}
+          cursor={false}
+          formatter={(value: any, _name: any, item: any) => [
+            `${value} titles (${item.payload.avgRating} ★ avg)`,
+            "Collection",
+          ]}
+        />
+        <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+          {data.map((_d, i) => (
+            <Cell key={i} fill={palette[i % palette.length]} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
