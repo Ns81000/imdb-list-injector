@@ -26,7 +26,7 @@ export function MobileTopBar() {
         ? "Movie"
         : "");
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-[var(--hairline)] bg-[var(--canvas)] px-4 lg:hidden">
+    <header className="relative z-30 flex h-14 w-full items-center justify-between bg-transparent px-4 lg:hidden">
       <Link to="/" className="flex items-center gap-2">
         <ZoomOutLogo size={24} />
         <span

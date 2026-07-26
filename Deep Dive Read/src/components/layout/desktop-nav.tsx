@@ -20,7 +20,7 @@ export function DesktopNav() {
   const { mode, setMode } = useMode();
   const { status, tooltip } = useSyncStatus();
   return (
-    <header className="sticky top-0 z-40 hidden h-16 border-b border-[var(--hairline)] bg-[var(--canvas)] lg:block">
+    <header className="relative z-40 hidden h-16 w-full bg-transparent lg:block">
       <div className="mx-auto flex h-full max-w-[1280px] items-center justify-between px-8">
         <Link to="/" className="flex items-center gap-2">
           <ZoomOutLogo size={32} />
