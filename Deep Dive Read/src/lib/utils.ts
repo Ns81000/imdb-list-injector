@@ -81,6 +81,7 @@ export const BRAND_COLORS = [
   "brand-peach",
   "brand-ochre",
   "brand-mint",
+  "brand-coral",
 ] as const;
 
 export type BrandColor = (typeof BRAND_COLORS)[number];
@@ -94,7 +95,7 @@ export function brandCycle(index: number, avoidRepeat?: BrandColor): BrandColor 
 }
 
 export function isDarkBrand(c: BrandColor): boolean {
-  return c === "brand-pink" || c === "brand-teal" || c === "brand-coral" as BrandColor;
+  return c === "brand-pink" || c === "brand-teal" || c === "brand-coral";
 }
 
 /** Hash a string to one of the brand colors — used for initials avatars. */
