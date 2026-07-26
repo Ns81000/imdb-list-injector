@@ -17,6 +17,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as LibraryIndexRouteImport } from './routes/library.index'
 import { Route as LibraryListIdRouteImport } from './routes/library.$listId'
 import { Route as MovieImdbIdRouteImport } from './routes/movie.$imdbId'
 import { Route as ApiPublicSyncPushRouteImport } from './routes/api/public/sync/push'
@@ -62,6 +63,11 @@ const SetupRoute = SetupRouteImport.update({
   path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LibraryIndexRoute = LibraryIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LibraryRoute,
+} as any)
 const LibraryListIdRoute = LibraryListIdRouteImport.update({
   id: '/$listId',
   path: '/$listId',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/library/$listId': typeof LibraryListIdRoute
   '/movie/$imdbId': typeof MovieImdbIdRoute
+  '/library/': typeof LibraryIndexRoute
   '/api/public/sync/push': typeof ApiPublicSyncPushRoute
   '/api/tmdb/image/$': typeof ApiTmdbImageSplatRoute
 }
@@ -101,13 +108,13 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
   '/credits': typeof CreditsRoute
-  '/library': typeof LibraryRouteWithChildren
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
   '/library/$listId': typeof LibraryListIdRoute
   '/movie/$imdbId': typeof MovieImdbIdRoute
+  '/library': typeof LibraryIndexRoute
   '/api/public/sync/push': typeof ApiPublicSyncPushRoute
   '/api/tmdb/image/$': typeof ApiTmdbImageSplatRoute
 }
@@ -123,6 +130,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/library/$listId': typeof LibraryListIdRoute
   '/movie/$imdbId': typeof MovieImdbIdRoute
+  '/library/': typeof LibraryIndexRoute
   '/api/public/sync/push': typeof ApiPublicSyncPushRoute
   '/api/tmdb/image/$': typeof ApiTmdbImageSplatRoute
 }
@@ -139,6 +147,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/library/$listId'
     | '/movie/$imdbId'
+    | '/library/'
     | '/api/public/sync/push'
     | '/api/tmdb/image/$'
   fileRoutesByTo: FileRoutesByTo
@@ -146,13 +155,13 @@ export interface FileRouteTypes {
     | '/'
     | '/analytics'
     | '/credits'
-    | '/library'
     | '/login'
     | '/search'
     | '/settings'
     | '/setup'
     | '/library/$listId'
     | '/movie/$imdbId'
+    | '/library'
     | '/api/public/sync/push'
     | '/api/tmdb/image/$'
   id:
@@ -167,6 +176,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/library/$listId'
     | '/movie/$imdbId'
+    | '/library/'
     | '/api/public/sync/push'
     | '/api/tmdb/image/$'
   fileRoutesById: FileRoutesById
@@ -243,6 +253,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/library/': {
+      id: '/library/'
+      path: '/'
+      fullPath: '/library/'
+      preLoaderRoute: typeof LibraryIndexRouteImport
+      parentRoute: typeof LibraryRoute
+    }
     '/library/$listId': {
       id: '/library/$listId'
       path: '/$listId'
@@ -276,10 +293,12 @@ declare module '@tanstack/react-router' {
 
 interface LibraryRouteChildren {
   LibraryListIdRoute: typeof LibraryListIdRoute
+  LibraryIndexRoute: typeof LibraryIndexRoute
 }
 
 const LibraryRouteChildren: LibraryRouteChildren = {
   LibraryListIdRoute: LibraryListIdRoute,
+  LibraryIndexRoute: LibraryIndexRoute,
 }
 
 const LibraryRouteWithChildren =

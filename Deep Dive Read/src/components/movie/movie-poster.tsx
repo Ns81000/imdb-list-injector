@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
-import { posterUrl, hashBrand, initials } from "@/lib/utils";
+import { posterUrl, hashBrand, cn } from "@/lib/utils";
 import type { BrandColor } from "@/lib/utils";
 import { FilmIcon } from "../icons";
 
 const bg: Record<BrandColor, string> = {
-  "brand-pink": "bg-[var(--brand-pink)]",
-  "brand-teal": "bg-[var(--brand-teal)]",
-  "brand-lavender": "bg-[var(--brand-lavender)]",
-  "brand-peach": "bg-[var(--brand-peach)]",
-  "brand-ochre": "bg-[var(--brand-ochre)]",
-  "brand-mint": "bg-[var(--brand-mint)]",
+  "brand-pink": "bg-[#ff4d8b]",
+  "brand-teal": "bg-[#1a3a3a]",
+  "brand-lavender": "bg-[#967adb]",
+  "brand-peach": "bg-[#f58b54]",
+  "brand-ochre": "bg-[#d49e24]",
+  "brand-mint": "bg-[#4da890]",
+  "brand-coral": "bg-[#ff6b5a]",
 };
 
 export function MoviePoster({
@@ -25,24 +26,32 @@ export function MoviePoster({
 }) {
   const [error, setError] = useState(false);
   const url = posterUrl(path, size);
-  // Reset error when the underlying image URL changes; otherwise a component
-  // reused across items would remain permanently stuck on the fallback.
+
   useEffect(() => {
     setError(false);
   }, [url]);
+
   const color = hashBrand(title);
+
   if (!url || error) {
     return (
       <div
-        className={`flex flex-col items-center justify-center gap-2 p-3 text-center ${bg[color]} ${className}`}
+        className={cn(
+          "flex h-full w-full flex-col items-center justify-center gap-3 p-4 text-center select-none",
+          bg[color],
+          className,
+        )}
       >
-        <FilmIcon size={22} className="opacity-70 text-[var(--on-dark)]" />
-        <div className="line-clamp-3 text-[12px] font-semibold leading-tight text-[var(--on-dark)]">
-          {title || initials(title)}
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/20 shadow-sm">
+          <FilmIcon size={22} className="text-white opacity-90" />
+        </div>
+        <div className="line-clamp-4 text-xs font-bold leading-snug text-white drop-shadow-sm">
+          {title}
         </div>
       </div>
     );
   }
+
   return (
     <img
       src={url}
@@ -50,7 +59,7 @@ export function MoviePoster({
       loading="lazy"
       decoding="async"
       onError={() => setError(true)}
-      className={`h-full w-full object-cover ${className}`}
+      className={cn("h-full w-full object-cover", className)}
     />
   );
 }
