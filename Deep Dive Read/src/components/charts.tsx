@@ -26,12 +26,28 @@ const brand = {
 };
 
 const tooltipStyle = {
-  background: "var(--surface-dark)",
-  color: "var(--on-dark)",
-  border: "none",
-  borderRadius: 8,
-  fontSize: 13,
-  padding: "6px 10px",
+  backgroundColor: "#0a1a1a",
+  color: "#ffffff",
+  border: "1px solid rgba(255, 255, 255, 0.15)",
+  borderRadius: "10px",
+  fontSize: "12px",
+  fontWeight: 600,
+  padding: "8px 12px",
+  boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3)",
+};
+
+const itemStyle = {
+  color: "#ffffff",
+  fontSize: "12px",
+  fontWeight: 600,
+  padding: "2px 0",
+};
+
+const labelStyle = {
+  color: "#a0a0a0",
+  fontSize: "11px",
+  fontWeight: 500,
+  marginBottom: "4px",
 };
 
 export function RatingHistogram({ movies, height = 240 }: { movies: Movie[]; height?: number }) {
@@ -56,7 +72,7 @@ export function RatingHistogram({ movies, height = 240 }: { movies: Movie[]; hei
       <BarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: -20 }}>
         <XAxis dataKey="bin" stroke="var(--muted-soft)" fontSize={11} tickLine={false} axisLine={false} />
         <YAxis stroke="var(--muted-soft)" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--surface-soft)" }} />
+        <Tooltip contentStyle={tooltipStyle} itemStyle={itemStyle} labelStyle={labelStyle} cursor={false} />
         <Bar dataKey="count" radius={[6, 6, 0, 0]}>
           {data.map((_d, i) => {
             const t = i / Math.max(1, data.length - 1);
@@ -99,10 +115,10 @@ export function GenreBars({ movies, top = 20, height = 400 }: { movies: Movie[];
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 32, left: 8, bottom: 4 }}>
-        <XAxis type="number" stroke="var(--muted-soft)" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 36, left: 8, bottom: 4 }}>
+        <XAxis type="number" hide />
         <YAxis type="category" dataKey="genre" stroke="var(--muted)" fontSize={12} width={110} tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--surface-soft)" }} />
+        <Tooltip contentStyle={tooltipStyle} itemStyle={itemStyle} labelStyle={labelStyle} cursor={false} />
         <Bar dataKey="count" radius={[0, 6, 6, 0]} label={{ position: "right", fill: "var(--muted)", fontSize: 11 }}>
           {data.map((_d, i) => (
             <Cell key={i} fill={palette[i % palette.length]} />
@@ -137,7 +153,7 @@ export function YearTimeline({ movies, height = 240 }: { movies: Movie[]; height
         </defs>
         <XAxis dataKey="year" stroke="var(--muted-soft)" fontSize={11} tickLine={false} axisLine={false} />
         <YAxis stroke="var(--muted-soft)" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-        <Tooltip contentStyle={tooltipStyle} />
+        <Tooltip contentStyle={tooltipStyle} itemStyle={itemStyle} labelStyle={labelStyle} cursor={false} />
         <Area type="monotone" dataKey="count" stroke={brand.lavender} strokeWidth={2} fill="url(#yearGrad)" />
       </AreaChart>
     </ResponsiveContainer>
@@ -150,7 +166,7 @@ export function RuntimeDistribution({ movies, height = 240 }: { movies: Movie[];
       { label: "<60m", min: 0, max: 60, count: 0 },
       { label: "60–90m", min: 60, max: 90, count: 0 },
       { label: "90–120m", min: 90, max: 120, count: 0 },
-      { label: "120–150m", min: 120, max: 150, count: 0 },
+      { label: "120–150m", min: 150, max: 180, count: 0 },
       { label: "150–180m", min: 150, max: 180, count: 0 },
       { label: "180m+", min: 180, max: Infinity, count: 0 },
     ];
@@ -167,7 +183,7 @@ export function RuntimeDistribution({ movies, height = 240 }: { movies: Movie[];
       <BarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: -20 }}>
         <XAxis dataKey="label" stroke="var(--muted-soft)" fontSize={11} tickLine={false} axisLine={false} />
         <YAxis stroke="var(--muted-soft)" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--surface-soft)" }} />
+        <Tooltip contentStyle={tooltipStyle} itemStyle={itemStyle} labelStyle={labelStyle} cursor={false} />
         <Bar dataKey="count" radius={[6, 6, 0, 0]} fill={brand.peach} />
       </BarChart>
     </ResponsiveContainer>
@@ -193,7 +209,7 @@ export function ContentRatingDonut({ movies, height = 260 }: { movies: Movie[]; 
               <Cell key={i} fill={palette[i % palette.length]} />
             ))}
           </Pie>
-          <Tooltip contentStyle={tooltipStyle} />
+          <Tooltip contentStyle={tooltipStyle} itemStyle={itemStyle} labelStyle={labelStyle} />
         </PieChart>
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
@@ -224,10 +240,10 @@ export function TypeBars({ movies, height = 200 }: { movies: Movie[]; height?: n
   }, [movies]);
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 32, left: 8, bottom: 4 }}>
-        <XAxis type="number" stroke="var(--muted-soft)" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 36, left: 8, bottom: 4 }}>
+        <XAxis type="number" hide />
         <YAxis type="category" dataKey="type" stroke="var(--muted)" fontSize={12} width={110} tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--surface-soft)" }} />
+        <Tooltip contentStyle={tooltipStyle} itemStyle={itemStyle} labelStyle={labelStyle} cursor={false} />
         <Bar dataKey="count" radius={[0, 6, 6, 0]}>
           {data.map((_d, i) => (
             <Cell key={i} fill={palette[i % palette.length]} />
