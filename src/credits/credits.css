@@ -615,33 +615,7 @@ body::-webkit-scrollbar-thumb:hover {
   gap: 2px;
 }
 
-.credits-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 32px;
-  padding: 0 12px;
-  background: transparent;
-  border: none;
-  border-radius: var(--r-sm);
-  font-family: var(--font);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
 
-.credits-toggle-btn.active {
-  background: var(--primary);
-  color: var(--on-primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-}
-
-.credits-toggle-btn:not(.active):hover {
-  background: var(--surface-strong);
-  color: var(--ink);
-}
 
 /* ============================================================
    Gender Filter Pills & Filter Row
@@ -689,100 +663,7 @@ body::-webkit-scrollbar-thumb:hover {
   color: var(--ink);
 }
 
-/* ============================================================
-   Large Grid View (Portrait Cards)
-   ============================================================ */
 
-.credits-grid.view-grid {
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 20px;
-}
-
-.credits-grid.view-grid .person-card {
-  position: relative;
-  padding: 0;
-  overflow: hidden;
-  aspect-ratio: 2 / 3;
-  border-radius: var(--r-xl);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-  background: #121212;
-}
-
-.credits-grid.view-grid .person-card-inner {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.credits-grid.view-grid .person-photo-container {
-  width: 100%;
-  height: 100%;
-}
-
-.credits-grid.view-grid img,
-.credits-grid.view-grid .person-grid-photo,
-.credits-grid.view-grid .person-photo {
-  width: 100%;
-  height: 100%;
-  border-radius: 0;
-  border: none;
-  object-fit: cover;
-  display: block;
-  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.credits-grid.view-grid .person-card:hover img,
-.credits-grid.view-grid .person-card:hover .person-grid-photo,
-.credits-grid.view-grid .person-card:hover .person-photo {
-  transform: scale(1.05);
-}
-
-.credits-grid.view-small img,
-.credits-grid.view-small .person-photo,
-.credits-grid.view-small .person-grid-photo {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--surface-strong);
-  border: 2px solid var(--hairline);
-  flex-shrink: 0;
-  transform: none;
-}
-
-.credits-grid.view-grid .person-placeholder {
-  width: 100%;
-  height: 100%;
-  border-radius: 0;
-  font-size: 42px;
-}
-
-.credits-grid.view-grid .person-card-meta {
-  position: absolute;
-  inset: auto 0 0 0;
-  padding: 32px 14px 14px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.5) 60%, transparent 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  text-align: left;
-}
-
-.credits-grid.view-grid .person-name {
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 700;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-}
-
-.credits-grid.view-grid .person-count {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
 
 /* ============================================================
    Person Action Choice Modal
@@ -804,11 +685,11 @@ body::-webkit-scrollbar-thumb:hover {
 .person-modal-card {
   position: relative;
   width: 100%;
-  max-width: 420px;
+  max-width: 580px;
   background: var(--canvas);
   border: 1px solid var(--hairline);
   border-radius: var(--r-xl);
-  padding: 28px;
+  padding: 32px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
@@ -852,24 +733,8 @@ body::-webkit-scrollbar-thumb:hover {
   gap: 8px;
 }
 
-.person-modal-avatar-wrapper {
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  overflow: hidden;
-  margin-bottom: 4px;
-  border: 3px solid var(--hairline);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.modal-avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 .person-modal-name {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.4px;
@@ -882,15 +747,16 @@ body::-webkit-scrollbar-thumb:hover {
 
 .person-modal-options {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-direction: row;
+  gap: 16px;
 }
 
 .person-option-btn {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px 20px;
+  padding: 18px 20px;
   border-radius: var(--r-lg);
   border: 1px solid var(--hairline);
   background: var(--surface-soft);
@@ -964,18 +830,24 @@ body::-webkit-scrollbar-thumb:hover {
   justify-content: center;
 }
 
-.person-clip-img {
+.person-clip-img,
+.clips-img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
   opacity: 0;
-  transition: opacity 0.6s ease-in-out;
+  filter: blur(10px);
+  transform: scale(1.03);
+  transition: opacity 0.9s cubic-bezier(0.23, 1, 0.32, 1), filter 0.9s cubic-bezier(0.23, 1, 0.32, 1), transform 0.9s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.person-clip-img.is-active {
+.person-clip-img.is-active,
+.clips-img.is-active {
   opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
 }
 
 .person-clips-progress {
@@ -994,11 +866,17 @@ body::-webkit-scrollbar-thumb:hover {
   background: #ffffff;
 }
 
-.person-clips-close {
+.person-clips-controls {
   position: absolute;
   top: 24px;
   right: 24px;
   z-index: 2020;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.person-clips-btn {
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -1014,12 +892,12 @@ body::-webkit-scrollbar-thumb:hover {
   transition: transform 0.15s, background 0.15s;
 }
 
-.person-clips-close:hover {
+.person-clips-btn:hover {
   background: rgba(255, 255, 255, 0.2);
   transform: scale(1.08);
 }
 
-.person-clips-close:active {
+.person-clips-btn:active {
   transform: scale(0.94);
 }
 

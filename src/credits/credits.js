@@ -17,8 +17,6 @@
   let tmdbKey = null;
   let currentCategoryPeople = null;
 
-  // View Mode: 'small' | 'grid'
-  let currentViewMode = localStorage.getItem('imdb_credits_view_mode') || 'small';
   // Gender Filter: 'all' | 'male' | 'female'
   let currentGenderFilter = 'all';
 
@@ -43,7 +41,6 @@
       }
 
       tmdbKey = await getTmdbKey();
-      setupViewToggleHandlers();
       setupGenderFilterHandlers();
       setupModalHandlers();
       setupClipsViewerHandlers();
@@ -196,70 +193,7 @@
     $('#credits-empty').classList.remove('hidden');
   }
 
-  // --- View Toggle & Filter Handlers ---
-
-  function setupViewToggleHandlers() {
-    const btnSmall = $('#btn-view-small');
-    const btnGrid = $('#btn-view-grid');
-
-    if (btnSmall && btnGrid) {
-      if (currentViewMode === 'grid') {
-        btnGrid.classList.add('active');
-        btnSmall.classList.remove('active');
-      } else {
-        btnSmall.classList.add('active');
-        btnGrid.classList.remove('active');
-      }
-
-      btnSmall.addEventListener('click', () => {
-        if (currentViewMode === 'small') return;
-        currentViewMode = 'small';
-        localStorage.setItem('imdb_credits_view_mode', 'small');
-        btnSmall.classList.add('active');
-        btnGrid.classList.remove('active');
-        applyViewMode();
-      });
-
-      btnGrid.addEventListener('click', () => {
-        if (currentViewMode === 'grid') return;
-        currentViewMode = 'grid';
-        localStorage.setItem('imdb_credits_view_mode', 'grid');
-        btnGrid.classList.add('active');
-        btnSmall.classList.remove('active');
-        applyViewMode();
-      });
-    }
-  }
-
-  function applyViewMode() {
-    const grids = document.querySelectorAll('.credits-grid');
-    grids.forEach(grid => {
-      if (currentViewMode === 'grid') {
-        grid.classList.add('view-grid');
-        grid.classList.remove('view-small');
-      } else {
-        grid.classList.add('view-small');
-        grid.classList.remove('view-grid');
-      }
-    });
-
-    document.querySelectorAll('.person-card').forEach(card => {
-      const img = card.querySelector('img');
-      if (img) {
-        if (currentViewMode === 'grid') {
-          img.className = 'person-grid-photo';
-          if (card.dataset.highResUrl) {
-            img.src = card.dataset.highResUrl;
-          }
-        } else {
-          img.className = 'person-photo';
-          if (card.dataset.profileUrl) {
-            img.src = card.dataset.profileUrl;
-          }
-        }
-      }
-    });
-  }
+  // --- Gender Filter Handlers ---
 
   function setupGenderFilterHandlers() {
     const pills = document.querySelectorAll('.gender-pill');
@@ -334,7 +268,7 @@
             <h2 class="credits-category-title">${cat.label}</h2>
             <span class="credits-category-count">${totalCount} total</span>
           </div>
-          <div class="credits-grid ${currentViewMode === 'grid' ? 'view-grid' : 'view-small'}" id="grid-${cat.key}">
+          <div class="credits-grid" id="grid-${cat.key}">
             ${topPeople.map((p, i) => personCardHtml(p, i)).join('')}
           </div>
           ${totalCount > TOP_N ? `
@@ -358,7 +292,6 @@
     });
 
     attachPersonCardHandlers(content);
-    loadPhotos();
   }
 
   function renderFullList(cat) {
@@ -393,7 +326,7 @@
         <span class="credits-full-count">${people.length} people</span>
       </div>
       <section class="credits-category" data-role="${cat}">
-        <div class="credits-grid ${currentViewMode === 'grid' ? 'view-grid' : 'view-small'}" id="grid-${cat}">
+        <div class="credits-grid" id="grid-${cat}">
           ${people.map((p, i) => personCardHtml(p, i)).join('')}
         </div>
       </section>
@@ -412,7 +345,6 @@
 
     attachPersonCardHandlers(content);
     initSearch(cat);
-    loadPhotos();
   }
 
   // --- Person Card HTML Generator ---
@@ -473,17 +405,11 @@
 
         const name = card.dataset.name;
         const nmId = card.dataset.nmId;
-        const tmdbId = card.dataset.tmdbId || null;
-        const profileUrl = card.dataset.profileUrl || null;
-        const highResUrl = card.dataset.highResUrl || null;
 
         selectedPersonData = {
           name,
           nmId,
-          tmdbId,
-          titleIds,
-          profileUrl,
-          highResUrl
+          titleIds
         };
 
         openPersonModal(selectedPersonData);
@@ -530,15 +456,6 @@
     $('#modal-person-name').textContent = person.name || 'Unknown Person';
     $('#modal-person-sub').textContent = `${(person.titleIds || []).length} linked title${person.titleIds.length !== 1 ? 's' : ''}`;
 
-    const wrapper = $('#modal-avatar-wrapper');
-    if (wrapper) {
-      if (person.profileUrl || person.highResUrl) {
-        wrapper.innerHTML = `<img src="${person.highResUrl || person.profileUrl}" class="modal-avatar-img" alt="${escapeHtml(person.name)}"/>`;
-      } else {
-        wrapper.innerHTML = `<div class="person-placeholder">${getInitials(person.name)}</div>`;
-      }
-    }
-
     modal.classList.remove('hidden');
   }
 
@@ -570,73 +487,9 @@
   }
 
   // --- Dedicated Full-Screen Person Clips Reel ---
+  // Mirrors original press "G" player from immersive.js
 
   const CLIPS_INTERVAL_MS = 4000;
-
-  function setupClipsViewerHandlers() {
-    const btnClose = $('#btn-person-clips-close');
-    if (btnClose) btnClose.onclick = closePersonClipsReel;
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && clipsState.active) {
-        closePersonClipsReel();
-      }
-    });
-  }
-
-  async function launchPersonClipsReel(person) {
-    const layer = $('#person-clips-layer');
-    if (!layer) return;
-
-    clipsState.active = true;
-    clipsState.images = [];
-    clipsState.index = 0;
-    clearTimeout(clipsState.timer);
-
-    layer.classList.add('is-open');
-    $('#person-clips-backdrop').innerHTML = '<div class="person-clips-spinner"></div>';
-    $('#person-clips-empty').classList.add('hidden');
-    resetClipsProgress(false);
-
-    let images = [];
-
-    // 1. Try IMDb MediaViewer scraper via background service worker
-    if (person.nmId) {
-      try {
-        const resp = await new Promise((resolve) => {
-          chrome.runtime.sendMessage({ type: 'FETCH_IMDB_PERSON_CLIPS', nmId: person.nmId }, resolve);
-        });
-        if (resp && resp.success && Array.isArray(resp.images) && resp.images.length > 0) {
-          images = resp.images;
-        }
-      } catch {}
-    }
-
-    // 2. Fallback to TMDB person gallery images if IMDb returned 0 images
-    if (images.length === 0 && (person.tmdbId || tmdbKey)) {
-      try {
-        let tmdbId = person.tmdbId;
-        if (!tmdbId && tmdbKey) {
-          const resolved = await globalThis.ImmersiveTmdb.resolvePersonByImdbId(person.nmId, person.name, tmdbKey);
-          if (resolved) tmdbId = resolved.tmdbId;
-        }
-        if (tmdbId && tmdbKey) {
-          images = await globalThis.ImmersiveTmdb.fetchPersonImages(tmdbId, tmdbKey);
-        }
-      } catch {}
-    }
-
-    if (images.length === 0) {
-      $('#person-clips-backdrop').innerHTML = '';
-      $('#person-clips-empty').classList.remove('hidden');
-      return;
-    }
-
-    clipsState.images = images;
-    renderClipSlide(0);
-    restartClipsTimer();
-  }
-
   const CLIPS_PRELOAD_AHEAD = 3;
   const preloadedUrls = new Set();
 
@@ -656,24 +509,112 @@
     }
   }
 
+  function setupClipsViewerHandlers() {
+    const btnClose = $('#btn-person-clips-close');
+    const btnFullscreen = $('#btn-person-clips-fullscreen');
+
+    if (btnClose) btnClose.onclick = closePersonClipsReel;
+    if (btnFullscreen) btnFullscreen.onclick = togglePersonClipsFullscreen;
+
+    document.addEventListener('keydown', (e) => {
+      if (!clipsState.active) return;
+      if (e.key === 'Escape') {
+        closePersonClipsReel();
+      } else if (e.key === 'f' || e.key === 'F') {
+        togglePersonClipsFullscreen();
+      }
+    });
+  }
+
+  function togglePersonClipsFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  async function launchPersonClipsReel(person) {
+    const layer = $('#person-clips-layer');
+    if (!layer) return;
+
+    clipsState.active = true;
+    clipsState.images = [];
+    clipsState.index = 0;
+    clearTimeout(clipsState.timer);
+
+    layer.classList.add('is-open');
+    $('#person-clips-backdrop').innerHTML = '<div class="person-clips-spinner"></div>';
+    $('#person-clips-empty').classList.add('hidden');
+    resetClipsProgress(false);
+
+    let images = [];
+
+    // 1. Fetch from IMDb MediaViewer via background worker
+    if (person.nmId) {
+      try {
+        const resp = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ type: 'FETCH_IMDB_PERSON_CLIPS', nmId: person.nmId }, resolve);
+        });
+        if (resp && resp.success && Array.isArray(resp.images) && resp.images.length > 0) {
+          images = resp.images;
+        }
+      } catch {}
+    }
+
+    // 2. Fallback to TMDB person images if IMDb return empty
+    if (images.length === 0 && tmdbKey) {
+      try {
+        let tmdbId = person.tmdbId;
+        if (!tmdbId) {
+          const resolved = await globalThis.ImmersiveTmdb.resolvePersonByImdbId(person.nmId, person.name, tmdbKey);
+          if (resolved) tmdbId = resolved.tmdbId;
+        }
+        if (tmdbId) {
+          images = await globalThis.ImmersiveTmdb.fetchPersonImages(tmdbId, tmdbKey);
+        }
+      } catch {}
+    }
+
+    if (images.length === 0) {
+      $('#person-clips-backdrop').innerHTML = '';
+      $('#person-clips-empty').classList.remove('hidden');
+      return;
+    }
+
+    shuffleArray(images);
+    clipsState.images = images;
+    renderClipSlide(0);
+    restartClipsTimer();
+  }
+
+  function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
   function renderClipSlide(idx) {
     const backdrop = $('#person-clips-backdrop');
     if (!backdrop || !clipsState.images.length) return;
 
     const imgData = clipsState.images[idx % clipsState.images.length];
-    const oldImgs = Array.from(backdrop.children);
+    const olds = Array.from(backdrop.children);
 
-    const imgNode = document.createElement('img');
-    imgNode.className = 'person-clip-img';
-    imgNode.decoding = 'async';
-    const activate = () => requestAnimationFrame(() => imgNode.classList.add('is-active'));
-    imgNode.onload = activate;
-    imgNode.onerror = () => imgNode.remove();
-    imgNode.src = imgData.url;
-    if (imgNode.complete && imgNode.naturalWidth > 0) activate();
+    const node = document.createElement('img');
+    node.className = 'clips-img';
+    node.alt = '';
+    node.decoding = 'async';
+    const activate = () => requestAnimationFrame(() => node.classList.add('is-active'));
+    node.onload = activate;
+    node.onerror = () => { if (node.parentNode) node.remove(); };
+    node.src = imgData.url;
+    if (node.complete && node.naturalWidth > 0) activate();
 
-    backdrop.appendChild(imgNode);
-    setTimeout(() => oldImgs.forEach(o => o.remove()), 950);
+    backdrop.appendChild(node);
+    setTimeout(() => olds.forEach((o) => o.remove()), 950);
 
     preloadClipNeighbors(idx);
   }
@@ -707,155 +648,14 @@
     clipsState.active = false;
     clearTimeout(clipsState.timer);
     clipsState.images = [];
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
     const layer = $('#person-clips-layer');
     if (layer) layer.classList.remove('is-open');
     $('#person-clips-backdrop').innerHTML = '';
     $('#person-clips-empty').classList.add('hidden');
     resetClipsProgress(false);
-  }
-
-  // --- High-Performance TMDB Photos & Gender Loading Engine ---
-
-  const photoQueue = [];
-  const activeRequests = new Set();
-  const CONCURRENCY_LIMIT = 6;
-  let photoObserver = null;
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-  function setupPhotoObserver() {
-    if ('IntersectionObserver' in window && !photoObserver) {
-      photoObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            const card = entry.target;
-            if (card.dataset.loadingState === 'pending') {
-              addToPhotoQueue(card, true); // Prioritize visible cards!
-              processPhotoQueue();
-            }
-          }
-        });
-      }, { rootMargin: '200px' });
-    }
-  }
-
-  function loadPhotos() {
-    if (!tmdbKey) return;
-    setupPhotoObserver();
-
-    const cards = document.querySelectorAll('.person-card');
-    cards.forEach(card => {
-      const ph = card.querySelector('.person-placeholder');
-      if (ph && !card.dataset.loadingState) {
-        card.dataset.loadingState = 'pending';
-        if (photoObserver) {
-          photoObserver.observe(card);
-        }
-      }
-    });
-
-    cards.forEach(card => {
-      if (card.dataset.loadingState === 'pending') {
-        addToPhotoQueue(card, false);
-      }
-    });
-
-    processPhotoQueue();
-  }
-
-  function addToPhotoQueue(card, priority = false) {
-    if (!card || card.dataset.loadingState !== 'pending') return;
-    const idx = photoQueue.indexOf(card);
-    if (idx !== -1) photoQueue.splice(idx, 1);
-
-    if (priority) {
-      photoQueue.unshift(card);
-    } else {
-      photoQueue.push(card);
-    }
-  }
-
-  async function processPhotoQueue() {
-    if (!tmdbKey || activeRequests.size >= CONCURRENCY_LIMIT || photoQueue.length === 0) return;
-
-    while (activeRequests.size < CONCURRENCY_LIMIT && photoQueue.length > 0) {
-      const card = photoQueue.shift();
-      if (!card || card.dataset.loadingState !== 'pending') continue;
-
-      card.dataset.loadingState = 'loading';
-      activeRequests.add(card);
-
-      fetchSingleCardPhoto(card).finally(() => {
-        activeRequests.delete(card);
-        if (photoObserver) photoObserver.unobserve(card);
-        processPhotoQueue();
-      });
-    }
-  }
-
-  async function fetchSingleCardPhoto(card) {
-    const ph = card.querySelector('.person-placeholder');
-    if (!ph) return;
-
-    const nameKey = ph.dataset.nameKey;
-    const name = card.dataset.name || nameKey;
-    const nmId = card.dataset.nmId || null;
-
-    try {
-      const result = await globalThis.ImmersiveTmdb.resolvePersonByImdbId(
-        nmId, name, tmdbKey, null
-      );
-
-      if (result) {
-        card.dataset.loadingState = 'done';
-        const profileUrl = result.profileUrl;
-        const highResUrl = result.highResProfileUrl || profileUrl;
-        const gender = result.gender || null;
-
-        if (gender) card.dataset.gender = gender;
-        if (result.tmdbId) card.dataset.tmdbId = result.tmdbId;
-        if (profileUrl) card.dataset.profileUrl = profileUrl;
-        if (highResUrl) card.dataset.highResUrl = highResUrl;
-
-        // Replace placeholders across all matching cards in DOM
-        document.querySelectorAll(`.person-placeholder[data-name-key="${CSS.escape(nameKey)}"]`).forEach(matchingPh => {
-          const matchingCard = matchingPh.closest('.person-card');
-          if (matchingCard) {
-            matchingCard.dataset.loadingState = 'done';
-            if (gender) matchingCard.dataset.gender = gender;
-            if (result.tmdbId) matchingCard.dataset.tmdbId = result.tmdbId;
-            if (profileUrl) matchingCard.dataset.profileUrl = profileUrl;
-            if (highResUrl) matchingCard.dataset.highResUrl = highResUrl;
-          }
-
-          if (profileUrl) {
-            const img = document.createElement('img');
-            img.src = currentViewMode === 'grid' ? highResUrl : profileUrl;
-            img.alt = result.name || '';
-            img.className = currentViewMode === 'grid' ? 'person-grid-photo' : 'person-photo';
-            img.loading = 'lazy';
-            img.onerror = () => {
-              img.replaceWith(matchingPh.cloneNode(true));
-            };
-            matchingPh.replaceWith(img);
-          }
-        });
-
-        // If gender filter active, update filter visibility
-        if (currentGenderFilter !== 'all') {
-          filterVisibleCards();
-        }
-      } else {
-        card.dataset.loadingState = 'failed';
-      }
-    } catch (err) {
-      if (err && err.rateLimited) {
-        card.dataset.loadingState = 'pending';
-        addToPhotoQueue(card, false);
-        await sleep((err.retryAfter || 1) * 1000);
-      } else {
-        card.dataset.loadingState = 'failed';
-      }
-    }
   }
 
   // --- Search Functionality ---

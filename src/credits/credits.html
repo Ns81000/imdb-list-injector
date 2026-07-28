@@ -14,24 +14,6 @@
         <span id="credits-scope" class="credits-scope"></span>
       </div>
       <div class="credits-header-actions">
-        <div class="credits-toolbar-group">
-          <div class="credits-view-toggle">
-            <button id="btn-view-small" class="credits-toggle-btn active" title="Small Avatar View">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="5" cy="5" r="2.5"/><circle cx="11" cy="5" r="2.5"/>
-                <circle cx="5" cy="11" r="2.5"/><circle cx="11" cy="11" r="2.5"/>
-              </svg>
-              Small
-            </button>
-            <button id="btn-view-grid" class="credits-toggle-btn" title="Large Grid View">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="2" width="5" height="12" rx="1"/>
-                <rect x="9" y="2" width="5" height="12" rx="1"/>
-              </svg>
-              Grid
-            </button>
-          </div>
-        </div>
         <button id="btn-export-credits" class="credits-btn-action" title="Export credits as JSON">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M8 2v9M4.5 7.5L8 11l3.5-3.5"/>
@@ -89,9 +71,6 @@
     <div class="person-modal-card">
       <button class="person-modal-close" id="btn-modal-close" title="Close">✕</button>
       <div class="person-modal-header">
-        <div class="person-modal-avatar-wrapper" id="modal-avatar-wrapper">
-          <div class="person-placeholder" id="modal-avatar-ph"></div>
-        </div>
         <h3 class="person-modal-name" id="modal-person-name">Person Name</h3>
         <span class="person-modal-subtitle" id="modal-person-sub">Select view mode</span>
       </div>
@@ -126,9 +105,21 @@
     <div class="person-clips-progress" id="person-clips-progress">
       <div class="person-clips-bar" id="person-clips-bar"></div>
     </div>
-    <button class="person-clips-close" id="btn-person-clips-close" title="Close slideshow (Esc)">✕</button>
+    <div class="person-clips-controls">
+      <button class="person-clips-btn" id="btn-person-clips-fullscreen" title="Toggle Fullscreen (F)">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 6V3a1 1 0 0 1 1-1h3M14 6V3a1 1 0 0 0-1-1h-3M2 10v3a1 1 0 0 0 1 1h3M14 10v3a1 1 0 0 1-1 1h-3"/>
+        </svg>
+      </button>
+      <button class="person-clips-btn" id="btn-person-clips-close" title="Close slideshow (Esc)">✕</button>
+    </div>
     <div id="person-clips-empty" class="person-clips-empty hidden">
-      <div class="empty-icon">📷</div>
+      <div class="empty-icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      </div>
       <h3>No clips available</h3>
       <p>Could not load photo clips for this person.</p>
     </div>
