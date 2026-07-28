@@ -6,6 +6,11 @@ import { supabase } from "./client";
 // Token is cached for 1 minute, then refreshed
 let cachedToken: { token: string | null; expires: number } | null = null;
 
+// Invalidate cache on any auth state change (logout, token refresh, session expiry)
+supabase.auth.onAuthStateChange((_event, session) => {
+  cachedToken = null; // Force re-fetch on next server function call
+});
+
 // Must be registered as a global `functionMiddleware` in `src/start.ts`; otherwise
 // the browser never attaches the bearer token to serverFn RPCs.
 export const attachSupabaseAuth = createMiddleware({ type: "function" }).client(

@@ -47,15 +47,20 @@ export const listListsPaginated = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<{ lists: List[]; hasMore: boolean }> => {
     await requireAuth();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Fetch limit+1 to accurately detect if more pages exist
     const res = await supabaseAdmin
       .from("lists")
       .select("id,name,url,movie_count,last_refreshed,mode,created_at,updated_at")
       .eq("mode", data.mode)
       .order("last_refreshed", { ascending: false, nullsFirst: false })
-      .range(data.offset, data.offset + data.limit - 1);
+      .range(data.offset, data.offset + data.limit); // Fetch one extra
     if (res.error) throw res.error;
-    const lists = (res.data ?? []) as unknown as List[];
-    const hasMore = lists.length === data.limit;
+    const allRows = (res.data ?? []) as unknown as List[];
+    
+    // If we got more than limit, there are more pages
+    const hasMore = allRows.length > data.limit;
+    const lists = allRows.slice(0, data.limit); // Return only the requested limit
+    
     return { lists, hasMore };
   });
 
@@ -87,19 +92,49 @@ export const getList = createServerFn({ method: "GET" })
       .maybeSingle();
     if (list.error) throw list.error;
     if (!list.data) return null;
-    const movies = await supabaseAdmin
-      .from("movies")
-      .select(
-        "imdb_id,list_id,position,type,title,year,rating,votes,genre,content_rating,duration,description,imdb_url,keywords,credits",
-      )
-      .eq("list_id", data.listId)
-      .order("position", { ascending: true, nullsFirst: false });
-    if (movies.error) throw movies.error;
+    
+    // Note: movies are now fetched separately via getListMoviesPaginated for large list support
     return {
       list: list.data as unknown as List,
-      movies: (movies.data ?? []) as unknown as Movie[],
     };
   });
+
+// Paginated version of getList for large lists (Finding #9 + #15)
+export const getListMoviesPaginated = createServerFn({ method: "GET" })
+  .inputValidator((data) =>
+    z
+      .object({
+        listId: z.string(),
+        offset: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(100).default(30),
+      })
+      .parse(data),
+  )
+  .handler(
+    async ({ data }): Promise<{ movies: Movie[]; hasMore: boolean }> => {
+      await requireAuth();
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      
+      // Fetch limit+1 to detect if more pages exist (same pattern as listListsPaginated)
+      const res = await supabaseAdmin
+        .from("movies")
+        .select(
+          "imdb_id,list_id,position,type,title,year,rating,votes,genre,content_rating,duration,description,imdb_url,keywords,credits",
+        )
+        .eq("list_id", data.listId)
+        .order("position", { ascending: true, nullsFirst: false })
+        .range(data.offset, data.offset + data.limit); // Fetch one extra
+      
+      if (res.error) throw res.error;
+      const allRows = (res.data ?? []) as unknown as Movie[];
+      
+      // If we got more than limit, there are more pages
+      const hasMore = allRows.length > data.limit;
+      const movies = allRows.slice(0, data.limit);
+      
+      return { movies, hasMore };
+    },
+  );
 
 export const getMovie = createServerFn({ method: "GET" })
   .inputValidator((data) => z.object({ imdbId: z.string() }).parse(data))

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { PageShell } from "@/components/layout/page-shell";
@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Pill } from "@/components/ui/pill";
 import { ChevronLeftIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getList } from "@/lib/data.functions";
+import { getList, getListMoviesPaginated } from "@/lib/data.functions";
 import {
   formatMinutes,
   parseDurationToMinutes,
@@ -32,7 +32,7 @@ export const Route = createFileRoute("/library/$listId")({
       { property: "og:description", content: "Movies in this saved IMDb list." },
     ],
   }),
-  // Finding #5: Add loader to prefetch list data during route transition
+  // Finding #5: Add loader to prefetch list metadata (not all movies)
   loader: async ({ context, params }) => {
     await context.queryClient.ensureQueryData({
       queryKey: ["list", params.listId],
@@ -48,13 +48,32 @@ export const Route = createFileRoute("/library/$listId")({
 
 function ListDetail() {
   const { listId } = Route.useParams();
-  const q = useQuery({ queryKey: ["list", listId], queryFn: () => getList({ data: { listId } }) });
+  
+  // Fetch list metadata
+  const listQ = useQuery({ 
+    queryKey: ["list", listId], 
+    queryFn: () => getList({ data: { listId } }) 
+  });
+  
+  // Fetch movies with pagination (Finding #9 fix)
+  const moviesQ = useInfiniteQuery({
+    queryKey: ["list-movies", listId],
+    queryFn: ({ pageParam = 0 }) => 
+      getListMoviesPaginated({ data: { listId, offset: pageParam, limit: 30 } }),
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.hasMore) return undefined;
+      return allPages.length * 30; // offset for next page
+    },
+    initialPageParam: 0,
+  });
+  
   const [sort, setSort] = useState("position");
   const [typeFilter, setTypeFilter] = useState("all");
   const [genreFilter, setGenreFilter] = useState("all");
 
-  const data = q.data;
-  const movies = data?.movies ?? [];
+  const listData = listQ.data;
+  // Flatten all pages into single array
+  const movies = moviesQ.data?.pages.flatMap(page => page.movies) ?? [];
 
   const stats = useMemo(() => {
     const ratings = movies.map((m) => parseRating(m.rating)).filter((x): x is number => x !== null);
@@ -104,7 +123,7 @@ function ListDetail() {
     return list;
   }, [movies, typeFilter, genreFilter, sort]);
 
-  if (q.isLoading) {
+  if (listQ.isLoading || moviesQ.isLoading) {
     return (
       <PageShell>
         <Skeleton className="mb-4 h-8 w-64" />
@@ -116,7 +135,7 @@ function ListDetail() {
       </PageShell>
     );
   }
-  if (!data) {
+  if (!listData) {
     return (
       <PageShell>
         <EmptyState title="List not found" description="This list is not in your library." />
@@ -132,9 +151,9 @@ function ListDetail() {
       >
         <ChevronLeftIcon size={16} /> Back to Library
       </Link>
-      <h1 className="display-sm">{data.list.name}</h1>
+      <h1 className="display-sm">{listData.list.name}</h1>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Pill>{movies.length} titles</Pill>
+        <Pill>{movies.length} titles loaded</Pill>
         <Pill>Avg {stats.avg ? stats.avg.toFixed(1) : "—"}</Pill>
         {stats.topGenre && <Pill>Top: {stats.topGenre[0]}</Pill>}
         <Pill>{formatMinutes(stats.totalMins)} runtime</Pill>
@@ -169,11 +188,33 @@ function ListDetail() {
           <EmptyState title="No matches" description="Try clearing the filters." />
         </div>
       ) : (
-        <div className="mt-6 grid gap-4 [content-visibility:auto] grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {filtered.map((m) => (
-            <MovieCard key={`${m.list_id}:${m.imdb_id}`} movie={m} />
-          ))}
-        </div>
+        <>
+          <div className="mt-6 grid gap-4 [content-visibility:auto] grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {filtered.map((m) => (
+              <MovieCard key={`${m.list_id}:${m.imdb_id}`} movie={m} />
+            ))}
+          </div>
+          
+          {/* Load more button for pagination */}
+          {moviesQ.hasNextPage && (
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={() => moviesQ.fetchNextPage()}
+                disabled={moviesQ.isFetchingNextPage}
+                className="rounded-full bg-[var(--brand-pink)] px-6 py-3 font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {moviesQ.isFetchingNextPage ? "Loading..." : "Load More"}
+              </button>
+            </div>
+          )}
+          
+          {/* Show error if load more fails */}
+          {moviesQ.error && (
+            <div className="mt-4 text-center text-sm text-[var(--error)]">
+              Failed to load more movies. Please try again.
+            </div>
+          )}
+        </>
       )}
     </PageShell>
   );
