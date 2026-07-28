@@ -822,6 +822,13 @@ body::-webkit-scrollbar-thumb:hover {
   opacity: 1;
 }
 
+.person-clips-layer:fullscreen,
+.person-clips-layer:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  background: #000000;
+}
+
 .person-clips-backdrop {
   position: absolute;
   inset: 0;

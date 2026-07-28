@@ -527,8 +527,13 @@
   }
 
   function togglePersonClipsFullscreen() {
+    const layer = $('#person-clips-layer');
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      if (layer && layer.requestFullscreen) {
+        layer.requestFullscreen().catch(() => {});
+      } else {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
     } else {
       document.exitFullscreen().catch(() => {});
     }
