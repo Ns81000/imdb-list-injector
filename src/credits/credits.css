@@ -693,16 +693,35 @@ body::-webkit-scrollbar-thumb:hover {
   height: 100%;
 }
 
-.credits-grid.view-grid .person-grid-photo {
+.credits-grid.view-grid img,
+.credits-grid.view-grid .person-grid-photo,
+.credits-grid.view-grid .person-photo {
   width: 100%;
   height: 100%;
+  border-radius: 0;
+  border: none;
   object-fit: cover;
   display: block;
   transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.credits-grid.view-grid .person-card:hover .person-grid-photo {
+.credits-grid.view-grid .person-card:hover img,
+.credits-grid.view-grid .person-card:hover .person-grid-photo,
+.credits-grid.view-grid .person-card:hover .person-photo {
   transform: scale(1.05);
+}
+
+.credits-grid.view-small img,
+.credits-grid.view-small .person-photo,
+.credits-grid.view-small .person-grid-photo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-strong);
+  border: 2px solid var(--hairline);
+  flex-shrink: 0;
+  transform: none;
 }
 
 .credits-grid.view-grid .person-placeholder {

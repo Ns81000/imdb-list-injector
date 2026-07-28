@@ -242,6 +242,23 @@
         grid.classList.remove('view-grid');
       }
     });
+
+    document.querySelectorAll('.person-card').forEach(card => {
+      const img = card.querySelector('img');
+      if (img) {
+        if (currentViewMode === 'grid') {
+          img.className = 'person-grid-photo';
+          if (card.dataset.highResUrl) {
+            img.src = card.dataset.highResUrl;
+          }
+        } else {
+          img.className = 'person-photo';
+          if (card.dataset.profileUrl) {
+            img.src = card.dataset.profileUrl;
+          }
+        }
+      }
+    });
   }
 
   function setupGenderFilterHandlers() {
