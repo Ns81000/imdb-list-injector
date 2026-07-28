@@ -207,9 +207,53 @@
   // --- Person search (for credits feature) --------------------------------
 
   const personCache = makeCache('imdb_tmdb_person_cache', 8000);
+  const personImagesCache = makeCache('imdb_tmdb_person_images_cache', 4000);
+
+  function parseGender(genderCode) {
+    if (genderCode === 1) return 'female';
+    if (genderCode === 2) return 'male';
+    return null;
+  }
+
+  async function resolvePersonByImdbId(nmId, name, key, signal) {
+    if (!nmId && !name) return { name: name || '', profileUrl: null, highResProfileUrl: null, gender: null, tmdbId: null };
+    const cacheKey = (nmId || name).toLowerCase().trim();
+    const cached = await personCache.get(cacheKey);
+    if (cached) return cached;
+
+    if (!key) return { name: name || '', profileUrl: null, highResProfileUrl: null, gender: null, tmdbId: null };
+    const auth = authFor(key);
+
+    try {
+      if (nmId) {
+        const findUrl = `${API_BASE}/find/${encodeURIComponent(nmId)}?external_source=imdb_id&language=en-US${auth.query}`;
+        const res = await fetch(findUrl, { headers: auth.headers, signal });
+        if (res.ok) {
+          const json = await res.json();
+          const pMatch = (json.person_results || [])[0];
+          if (pMatch) {
+            const data = {
+              name: pMatch.name || name || '',
+              nmId,
+              tmdbId: pMatch.id,
+              profileUrl: pMatch.profile_path ? imageUrl(pMatch.profile_path, 'w185') : null,
+              highResProfileUrl: pMatch.profile_path ? imageUrl(pMatch.profile_path, 'h632') : null,
+              gender: parseGender(pMatch.gender),
+              knownFor: pMatch.known_for_department || ''
+            };
+            await personCache.put(cacheKey, data);
+            return data;
+          }
+        }
+      }
+    } catch {}
+
+    // Fallback to name search
+    return searchPerson(name, key, signal);
+  }
 
   async function searchPerson(name, key, signal) {
-    if (!name || !key) return { name, profileUrl: null, tmdbId: null };
+    if (!name || !key) return { name, profileUrl: null, highResProfileUrl: null, gender: null, tmdbId: null };
 
     const cacheKey = name.toLowerCase().trim();
     const cached = await personCache.get(cacheKey);
@@ -239,12 +283,14 @@
 
     let data;
     if (!match) {
-      data = { name, profileUrl: null, tmdbId: null };
+      data = { name, profileUrl: null, highResProfileUrl: null, gender: null, tmdbId: null };
     } else {
       data = {
         name,
         tmdbId: match.id,
         profileUrl: match.profile_path ? imageUrl(match.profile_path, 'w185') : null,
+        highResProfileUrl: match.profile_path ? imageUrl(match.profile_path, 'h632') : null,
+        gender: parseGender(match.gender),
         knownFor: match.known_for_department || ''
       };
     }
@@ -253,5 +299,25 @@
     return data;
   }
 
-  globalThis.ImmersiveTmdb = { resolve, validateKey, imageUrl, fetchBackdrops, searchPerson };
+  async function fetchPersonImages(tmdbId, key, signal) {
+    if (!tmdbId || !key) return [];
+    const cacheKey = `person:${tmdbId}`;
+    const cached = await personImagesCache.get(cacheKey);
+    if (cached) return cached;
+
+    const auth = authFor(key);
+    const url = `${API_BASE}/person/${encodeURIComponent(tmdbId)}/images?${auth.query.slice(1)}`;
+    const res = await fetch(url, { headers: auth.headers, signal });
+    if (!res.ok) return [];
+
+    const json = await res.json();
+    const images = (json.profiles || [])
+      .map((p) => ({ path: p.file_path, url: imageUrl(p.file_path, 'original'), width: p.width, height: p.height }))
+      .filter((p) => !!p.url);
+
+    await personImagesCache.put(cacheKey, images);
+    return images;
+  }
+
+  globalThis.ImmersiveTmdb = { resolve, validateKey, imageUrl, fetchBackdrops, searchPerson, resolvePersonByImdbId, fetchPersonImages };
 })();

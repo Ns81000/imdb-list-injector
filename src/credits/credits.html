@@ -14,6 +14,24 @@
         <span id="credits-scope" class="credits-scope"></span>
       </div>
       <div class="credits-header-actions">
+        <div class="credits-toolbar-group">
+          <div class="credits-view-toggle">
+            <button id="btn-view-small" class="credits-toggle-btn active" title="Small Avatar View">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="5" cy="5" r="2.5"/><circle cx="11" cy="5" r="2.5"/>
+                <circle cx="5" cy="11" r="2.5"/><circle cx="11" cy="11" r="2.5"/>
+              </svg>
+              Small
+            </button>
+            <button id="btn-view-grid" class="credits-toggle-btn" title="Large Grid View">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="5" height="12" rx="1"/>
+                <rect x="9" y="2" width="5" height="12" rx="1"/>
+              </svg>
+              Grid
+            </button>
+          </div>
+        </div>
         <button id="btn-export-credits" class="credits-btn-action" title="Export credits as JSON">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M8 2v9M4.5 7.5L8 11l3.5-3.5"/>
@@ -34,8 +52,87 @@
       <p>No credits data found.</p>
       <p class="credits-empty-hint">Go back and click "Credits" on a list to scrape credits first.</p>
     </div>
+    <div id="credits-search-container" class="credits-search-container hidden">
+      <div class="credits-filter-row">
+        <div class="credits-search-wrapper">
+          <svg class="credits-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="7" cy="7" r="4.5"/>
+            <path d="M10.5 10.5L13.5 13.5"/>
+          </svg>
+          <input 
+            type="text" 
+            id="credits-search-input" 
+            class="credits-search-input" 
+            placeholder="Search by name..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="credits-search-clear" class="credits-search-clear hidden" title="Clear search">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4l8 8M12 4l-8 8"/>
+            </svg>
+          </button>
+        </div>
+        <div class="credits-gender-pills">
+          <button class="gender-pill active" data-gender="all">All</button>
+          <button class="gender-pill" data-gender="male">Male</button>
+          <button class="gender-pill" data-gender="female">Female</button>
+        </div>
+      </div>
+      <div id="credits-search-stats" class="credits-search-stats"></div>
+    </div>
     <div id="credits-content" class="credits-content hidden"></div>
   </main>
+
+  <!-- Person Action Selector Modal -->
+  <div id="person-action-modal" class="person-modal-overlay hidden">
+    <div class="person-modal-card">
+      <button class="person-modal-close" id="btn-modal-close" title="Close">✕</button>
+      <div class="person-modal-header">
+        <div class="person-modal-avatar-wrapper" id="modal-avatar-wrapper">
+          <div class="person-placeholder" id="modal-avatar-ph"></div>
+        </div>
+        <h3 class="person-modal-name" id="modal-person-name">Person Name</h3>
+        <span class="person-modal-subtitle" id="modal-person-sub">Select view mode</span>
+      </div>
+      <div class="person-modal-options">
+        <button class="person-option-btn primary" id="btn-option-immersive">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="3" width="12" height="10" rx="1.5"/>
+            <polygon points="6,6 11,8 6,10"/>
+          </svg>
+          <div class="option-text-group">
+            <span class="option-title">Immersive Titles View</span>
+            <span class="option-desc">Explore movies & TV shows linked to this person</span>
+          </div>
+        </button>
+        <button class="person-option-btn secondary" id="btn-option-clips">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M8 5v6M5 8h6"/>
+          </svg>
+          <div class="option-text-group">
+            <span class="option-title">Hi-Res Clips Reel</span>
+            <span class="option-desc">Distraction-free full-screen photo slideshow</span>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dedicated Fullscreen Person Clips Reel -->
+  <div id="person-clips-layer" class="person-clips-layer">
+    <div class="person-clips-backdrop" id="person-clips-backdrop"></div>
+    <div class="person-clips-progress" id="person-clips-progress">
+      <div class="person-clips-bar" id="person-clips-bar"></div>
+    </div>
+    <button class="person-clips-close" id="btn-person-clips-close" title="Close slideshow (Esc)">✕</button>
+    <div id="person-clips-empty" class="person-clips-empty hidden">
+      <div class="empty-icon">📷</div>
+      <h3>No clips available</h3>
+      <p>Could not load photo clips for this person.</p>
+    </div>
+  </div>
 
   <script src="../lib/crypto.js"></script>
   <script src="../lib/tmdb.js"></script>

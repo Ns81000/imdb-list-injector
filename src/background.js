@@ -70,8 +70,32 @@ async function migrateStoredCredits() {
                     for (const role of ['Director', 'Writers', 'Producers', 'Cast']) {
                       if (Array.isArray(movie.credits[role])) {
                         const original = movie.credits[role];
-                        const cleaned = Array.from(new Set(original.map(s => String(s || '').trim()).filter(Boolean)));
-                        if (cleaned.length !== original.length || cleaned.some((v, i) => v !== original[i])) {
+                        const cleaned = [];
+                        const seen = new Set();
+                        for (const item of original) {
+                          if (!item) continue;
+                          let name = '';
+                          let nmId = null;
+                          let gender = null;
+                          if (typeof item === 'string') {
+                            name = item.trim();
+                          } else if (typeof item === 'object') {
+                            name = String(item.name || '').trim();
+                            nmId = item.nmId || null;
+                            gender = item.gender || null;
+                          }
+                          if (!name || name.toLowerCase() === '[object object]') continue;
+                          const dedupeKey = (nmId || name).toLowerCase();
+                          if (seen.has(dedupeKey)) continue;
+                          seen.add(dedupeKey);
+
+                          if (nmId || gender) {
+                            cleaned.push({ name, nmId, gender });
+                          } else {
+                            cleaned.push(name);
+                          }
+                        }
+                        if (cleaned.length !== original.length || JSON.stringify(cleaned) !== JSON.stringify(original)) {
                           movie.credits[role] = cleaned;
                           listChanged = true;
                         }
@@ -188,6 +212,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GET_CREDITS_FETCH_STATUS') {
     const status = getCreditsFetchStatus(message.listId);
     sendResponse({ success: true, ...status });
+    return true;
+  }
+
+  if (message.type === 'FETCH_IMDB_PERSON_CLIPS') {
+    fetchImdbPersonMediaviewerImages(message.nmId)
+      .then(images => sendResponse({ success: true, images }))
+      .catch(err => sendResponse({ success: false, error: err.message, images: [] }));
     return true;
   }
 
@@ -856,6 +887,58 @@ async function fetchCreditsForTitle(imdbId, signal) {
   }
 
   return parseIMDbFullCredits(html);
+}
+
+async function fetchImdbPersonMediaviewerImages(nmId, signal) {
+  if (!nmId) return [];
+  const url = `https://www.imdb.com/name/${encodeURIComponent(nmId)}/mediaviewer/`;
+  try {
+    const response = await fetch(url, {
+      signal,
+      credentials: 'include',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9'
+      }
+    });
+
+    if (!response.ok) return [];
+
+    const html = await response.text();
+    if (!html || isBotChallenge(html)) return [];
+
+    const images = [];
+    const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/i);
+    if (nextDataMatch) {
+      try {
+        const data = JSON.parse(nextDataMatch[1]);
+        const edges = data?.props?.pageProps?.initialQueryData?.name?.images?.edges || [];
+        for (const edge of edges) {
+          if (edge?.node?.url) {
+            const rawUrl = edge.node.url;
+            const highResUrl = rawUrl.split('@')[0] + '@._V1_.jpg';
+            images.push({
+              url: highResUrl,
+              caption: edge.node.caption?.plainText || ''
+            });
+          }
+        }
+      } catch {}
+    }
+
+    if (images.length === 0) {
+      const imgRegex = /https:\/\/m\.media-amazon\.com\/images\/M\/[A-Za-z0-9_]+@\._V1_[^"'\s]+\.jpg/gi;
+      const matches = Array.from(new Set(html.match(imgRegex) || []));
+      for (const rawUrl of matches) {
+        const highResUrl = rawUrl.split('@')[0] + '@._V1_.jpg';
+        images.push({ url: highResUrl, caption: '' });
+      }
+    }
+
+    return images;
+  } catch {
+    return [];
+  }
 }
 
 // --- Zoom Out Web Auto-Sync ---

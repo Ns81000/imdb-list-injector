@@ -58,14 +58,18 @@ function parseIMDbFullCredits(html) {
 
     if (!targetCategory) continue;
 
-    // Extract person names from list items.
-    // Target: <li data-testid="name-credits-list-item"> ... <a class="name-credits--title-text-big">Name</a>
+    // Extract person names and nmId from list items.
+    // Target: <li data-testid="name-credits-list-item"> ... <a class="name-credits--title-text-big" href="/name/nmXXXXXXX/">Name</a>
     const itemRegex = /<li[^>]*data-testid="name-credits-list-item"[^>]*>([\s\S]*?)<\/li>/gi;
     let itemMatch;
     const seen = new Set();
 
     while ((itemMatch = itemRegex.exec(sectionHtml)) !== null) {
       const itemHtml = itemMatch[1];
+
+      // Extract nmId from href if present (e.g. href="/name/nm5954280/...")
+      const nmMatch = itemHtml.match(/href=["'](?:\/name\/|(?:https?:\/\/[^/]+)?\/name\/)(nm\d+)/i);
+      const nmId = nmMatch ? nmMatch[1] : null;
 
       // Primary: <a class="name-credits--title-text-big">
       let nameMatch = itemHtml.match(
@@ -89,16 +93,32 @@ function parseIMDbFullCredits(html) {
 
       if (nameMatch) {
         const name = nameMatch[1].replace(/<[^>]*>/g, '').trim();
-        if (name && !seen.has(name)) {
-          seen.add(name);
-          credits[targetCategory].push(name);
+        if (name) {
+          const dedupeKey = (nmId || name).toLowerCase().trim();
+          if (!seen.has(dedupeKey)) {
+            seen.add(dedupeKey);
+            credits[targetCategory].push({
+              name,
+              nmId: nmId || null,
+              gender: null
+            });
+          }
         }
       }
     }
   }
 
   for (const role in credits) {
-    credits[role] = Array.from(new Set(credits[role]));
+    // Unique check per role
+    const roleSeen = new Set();
+    credits[role] = credits[role].filter(entry => {
+      const k = typeof entry === 'string'
+        ? entry.toLowerCase().trim()
+        : ((entry.nmId || entry.name) || '').toLowerCase().trim();
+      if (!k || roleSeen.has(k)) return false;
+      roleSeen.add(k);
+      return true;
+    });
   }
   return credits;
 }

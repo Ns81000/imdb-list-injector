@@ -1165,7 +1165,21 @@
     const valid = {};
     for (const role of ['Director', 'Writers', 'Producers', 'Cast']) {
       if (Array.isArray(credits[role])) {
-        valid[role] = credits[role].map(n => str(n, 200).trim()).filter(Boolean);
+        valid[role] = credits[role].map(entry => {
+          if (!entry) return null;
+          if (typeof entry === 'string') {
+            const s = str(entry, 200).trim();
+            return (s && s.toLowerCase() !== '[object object]') ? s : null;
+          }
+          if (typeof entry === 'object') {
+            const name = str(entry.name, 200).trim();
+            if (!name || name.toLowerCase() === '[object object]') return null;
+            const nmId = str(entry.nmId, 30).trim() || null;
+            const gender = str(entry.gender, 20).trim() || null;
+            return { name, nmId, gender };
+          }
+          return null;
+        }).filter(Boolean);
       } else {
         valid[role] = [];
       }
@@ -1601,11 +1615,30 @@
           if (!list || !Array.isArray(list.movies)) continue;
           for (const movie of list.movies) {
             if (!movie || !movie.credits || typeof movie.credits !== 'object') continue;
-            for (const [role, names] of Object.entries(movie.credits)) {
-              if (!creditsCounts[role] || !Array.isArray(names)) continue;
-              for (const name of names) {
-                const clean = String(name).trim();
-                if (clean) creditsCounts[role].set(clean, (creditsCounts[role].get(clean) || 0) + 1);
+            for (const [role, items] of Object.entries(movie.credits)) {
+              if (!creditsCounts[role] || !Array.isArray(items)) continue;
+              for (const item of items) {
+                if (!item) continue;
+                let cleanName = '';
+                let nmId = null;
+                let gender = null;
+                if (typeof item === 'string') {
+                  cleanName = item.trim();
+                } else if (typeof item === 'object') {
+                  cleanName = String(item.name || '').trim();
+                  nmId = item.nmId || null;
+                  gender = item.gender || null;
+                }
+                if (cleanName && cleanName.toLowerCase() !== '[object object]') {
+                  const key = (nmId || cleanName).toLowerCase();
+                  if (!creditsCounts[role].has(key)) {
+                    creditsCounts[role].set(key, { name: cleanName, nmId, gender, count: 0 });
+                  }
+                  const rec = creditsCounts[role].get(key);
+                  rec.count += 1;
+                  if (nmId && !rec.nmId) rec.nmId = nmId;
+                  if (gender && !rec.gender) rec.gender = gender;
+                }
               }
             }
           }
@@ -1613,9 +1646,9 @@
 
         const sorted = {};
         for (const [role, map] of Object.entries(creditsCounts)) {
-          sorted[role] = Array.from(map.entries())
-            .sort((a, b) => b[1] - a[1])
-            .map(([name, count]) => ({ name, count }));
+          sorted[role] = Array.from(map.values())
+            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+            .map(p => ({ name: p.name, nmId: p.nmId, gender: p.gender, count: p.count }));
         }
 
         triggerDownload(JSON.stringify(sorted, null, 2), `imdb_credits_${activeMode}.json`);
