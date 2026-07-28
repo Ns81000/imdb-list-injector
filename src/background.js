@@ -769,9 +769,17 @@ async function startCreditsFetch(listId, force = false, storageKey = DEFAULT_STO
     const freshList = freshStored.find(l => l.id === listId);
     moviesToFetch = (freshList && Array.isArray(freshList.movies)) ? [...freshList.movies] : [];
   } else {
-    moviesToFetch = (Array.isArray(list.movies) ? list.movies : []).filter(
-      m => !m.credits || typeof m.credits !== 'object'
-    );
+    moviesToFetch = (Array.isArray(list.movies) ? list.movies : []).filter(m => {
+      if (!m || !m.credits || typeof m.credits !== 'object') return true;
+      for (const role of ['Director', 'Writers', 'Producers', 'Cast']) {
+        if (Array.isArray(m.credits[role])) {
+          for (const item of m.credits[role]) {
+            if (typeof item === 'string' || (typeof item === 'object' && !item.nmId)) return true;
+          }
+        }
+      }
+      return false;
+    });
   }
 
   if (moviesToFetch.length === 0) {

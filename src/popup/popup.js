@@ -231,11 +231,11 @@
       });
 
       container.querySelectorAll('.credits-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
           const idx = Number(btn.dataset.idx);
           const list = lists[idx];
           if (!list) return;
-          handleCreditsFetchClick(list);
+          handleCreditsFetchClick(list, e);
         });
       });
 
@@ -1519,14 +1519,30 @@
   // --- Credits Fetch Controller ---
   const _crHideTimers = new Map();
 
-  function handleCreditsFetchClick(list) {
-    const missing = list.movies.filter(m => !m.credits || typeof m.credits !== 'object').length;
-    if (missing === 0) {
+  function handleCreditsFetchClick(list, event) {
+    const isShiftKey = event && event.shiftKey;
+    const missing = list.movies.filter(m => {
+      if (!m.credits || typeof m.credits !== 'object') return true;
+      for (const role of ['Director', 'Writers', 'Producers', 'Cast']) {
+        if (Array.isArray(m.credits[role])) {
+          for (const item of m.credits[role]) {
+            if (typeof item === 'string' || (typeof item === 'object' && !item.nmId)) return true;
+          }
+        }
+      }
+      return false;
+    }).length;
+
+    if (missing === 0 && !isShiftKey) {
       openCreditsPage('list', list.id);
       return;
     }
-    showCreditsProgress(list.id, 'running', 0, missing, '', 'Starting...');
-    chrome.runtime.sendMessage({ type: 'START_CREDITS_FETCH', listId: list.id, force: false, storageKey: getStorageKey() }, (response) => {
+
+    const force = isShiftKey;
+    const countToFetch = force ? list.movies.length : missing;
+
+    showCreditsProgress(list.id, 'running', 0, countToFetch, '', 'Starting...');
+    chrome.runtime.sendMessage({ type: 'START_CREDITS_FETCH', listId: list.id, force, storageKey: getStorageKey() }, (response) => {
       if (response && response.success && response.status) {
         const s = response.status;
         showCreditsProgress(list.id, 'running', s.fetchedCount || 0, s.totalCount || 0, '', 'Starting...');
