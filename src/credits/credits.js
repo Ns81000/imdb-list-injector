@@ -637,6 +637,25 @@
     restartClipsTimer();
   }
 
+  const CLIPS_PRELOAD_AHEAD = 3;
+  const preloadedUrls = new Set();
+
+  function preloadUrl(url) {
+    if (!url || preloadedUrls.has(url)) return;
+    preloadedUrls.add(url);
+    const img = new Image();
+    img.src = url;
+  }
+
+  function preloadClipNeighbors(index) {
+    const images = clipsState.images;
+    if (!images || !images.length) return;
+    for (let i = 1; i <= CLIPS_PRELOAD_AHEAD; i++) {
+      const im = images[(index + i) % images.length];
+      if (im && im.url) preloadUrl(im.url);
+    }
+  }
+
   function renderClipSlide(idx) {
     const backdrop = $('#person-clips-backdrop');
     if (!backdrop || !clipsState.images.length) return;
@@ -654,7 +673,9 @@
     if (imgNode.complete && imgNode.naturalWidth > 0) activate();
 
     backdrop.appendChild(imgNode);
-    setTimeout(() => oldImgs.forEach(o => o.remove()), 900);
+    setTimeout(() => oldImgs.forEach(o => o.remove()), 950);
+
+    preloadClipNeighbors(idx);
   }
 
   function restartClipsTimer() {
