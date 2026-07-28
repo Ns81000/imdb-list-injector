@@ -900,6 +900,10 @@ async function fetchCreditsForTitle(imdbId, signal) {
 async function fetchImdbPersonMediaviewerImages(nmId, signal) {
   if (!nmId) return [];
   const url = `https://www.imdb.com/name/${encodeURIComponent(nmId)}/mediaviewer/`;
+  const MAX_IMAGES = 200;
+  const images = [];
+  const seenUrls = new Set();
+
   try {
     const response = await fetch(url, {
       signal,
@@ -915,20 +919,29 @@ async function fetchImdbPersonMediaviewerImages(nmId, signal) {
     const html = await response.text();
     if (!html || isBotChallenge(html)) return [];
 
-    const images = [];
+    let hasNextPage = false;
+    let endCursor = null;
+
     const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/i);
     if (nextDataMatch) {
       try {
         const data = JSON.parse(nextDataMatch[1]);
-        const edges = data?.props?.pageProps?.initialQueryData?.name?.images?.edges || [];
+        const imgObj = data?.props?.pageProps?.initialQueryData?.name?.images || {};
+        const edges = imgObj.edges || [];
+        hasNextPage = imgObj.pageInfo?.hasNextPage || false;
+        endCursor = imgObj.pageInfo?.endCursor || null;
+
         for (const edge of edges) {
           if (edge?.node?.url) {
             const rawUrl = edge.node.url;
             const highResUrl = rawUrl.split('@')[0] + '@._V1_.jpg';
-            images.push({
-              url: highResUrl,
-              caption: edge.node.caption?.plainText || ''
-            });
+            if (!seenUrls.has(highResUrl)) {
+              seenUrls.add(highResUrl);
+              images.push({
+                url: highResUrl,
+                caption: edge.node.caption?.plainText || ''
+              });
+            }
           }
         }
       } catch {}
@@ -939,7 +952,74 @@ async function fetchImdbPersonMediaviewerImages(nmId, signal) {
       const matches = Array.from(new Set(html.match(imgRegex) || []));
       for (const rawUrl of matches) {
         const highResUrl = rawUrl.split('@')[0] + '@._V1_.jpg';
-        images.push({ url: highResUrl, caption: '' });
+        if (!seenUrls.has(highResUrl)) {
+          seenUrls.add(highResUrl);
+          images.push({ url: highResUrl, caption: '' });
+        }
+      }
+    }
+
+    // GraphQL Pagination up to MAX_IMAGES (200 photos)
+    const query = `
+      query NameMediaviewerImages($const: String!, $first: Int!, $after: String) {
+        name(id: $const) {
+          images(first: $first, after: $after) {
+            pageInfo { hasNextPage endCursor }
+            edges {
+              node {
+                url
+                caption { plainText }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    while (images.length < MAX_IMAGES && hasNextPage && endCursor) {
+      const fetchCount = Math.min(100, MAX_IMAGES - images.length);
+      try {
+        const gqlRes = await fetch('https://api.graphql.imdb.com/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            query,
+            operationName: 'NameMediaviewerImages',
+            variables: {
+              const: nmId,
+              first: fetchCount,
+              after: endCursor
+            }
+          })
+        });
+
+        if (!gqlRes.ok) break;
+        const gqlData = await gqlRes.json();
+        const imgObj = gqlData?.data?.name?.images || {};
+        const edges = imgObj.edges || [];
+        hasNextPage = imgObj.pageInfo?.hasNextPage || false;
+        endCursor = imgObj.pageInfo?.endCursor || null;
+
+        if (!edges || edges.length === 0) break;
+
+        for (const edge of edges) {
+          if (edge?.node?.url) {
+            const rawUrl = edge.node.url;
+            const highResUrl = rawUrl.split('@')[0] + '@._V1_.jpg';
+            if (!seenUrls.has(highResUrl)) {
+              seenUrls.add(highResUrl);
+              images.push({
+                url: highResUrl,
+                caption: edge.node.caption?.plainText || ''
+              });
+            }
+          }
+        }
+      } catch {
+        break;
       }
     }
 

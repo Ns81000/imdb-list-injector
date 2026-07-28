@@ -603,6 +603,11 @@
     const imgData = clipsState.images[idx % clipsState.images.length];
     const olds = Array.from(backdrop.children);
 
+    olds.forEach(o => {
+      o.classList.remove('is-active');
+      o.classList.add('is-exiting');
+    });
+
     const node = document.createElement('img');
     node.className = 'clips-img';
     node.alt = '';

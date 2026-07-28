@@ -850,6 +850,13 @@ body::-webkit-scrollbar-thumb:hover {
   transform: scale(1);
 }
 
+.person-clip-img.is-exiting,
+.clips-img.is-exiting {
+  opacity: 0;
+  filter: blur(10px);
+  transform: scale(0.97);
+}
+
 .person-clips-progress {
   position: absolute;
   top: 0;
