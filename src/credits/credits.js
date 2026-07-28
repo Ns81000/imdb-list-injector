@@ -693,62 +693,146 @@
     resetClipsProgress(false);
   }
 
-  // --- TMDB Photos & Gender Loading ---
+  // --- High-Performance TMDB Photos & Gender Loading Engine ---
 
-  async function loadPhotos() {
+  const photoQueue = [];
+  const activeRequests = new Set();
+  const CONCURRENCY_LIMIT = 6;
+  let photoObserver = null;
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  function setupPhotoObserver() {
+    if ('IntersectionObserver' in window && !photoObserver) {
+      photoObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const card = entry.target;
+            if (card.dataset.loadingState === 'pending') {
+              addToPhotoQueue(card, true); // Prioritize visible cards!
+              processPhotoQueue();
+            }
+          }
+        });
+      }, { rootMargin: '200px' });
+    }
+  }
+
+  function loadPhotos() {
     if (!tmdbKey) return;
+    setupPhotoObserver();
 
-    const placeholders = document.querySelectorAll('.person-placeholder');
-    const seen = new Set();
-
-    for (const el of placeholders) {
-      const nameKey = el.dataset.nameKey;
-      if (!nameKey || seen.has(nameKey)) continue;
-      seen.add(nameKey);
-
-      // Find matching person object
-      let cardEl = el.closest('.person-card');
-      let name = cardEl ? cardEl.dataset.name : nameKey;
-      let nmId = cardEl ? cardEl.dataset.nmId : null;
-
-      try {
-        const result = await globalThis.ImmersiveTmdb.resolvePersonByImdbId(
-          nmId, name, tmdbKey, null
-        );
-
-        if (result) {
-          const profileUrl = result.profileUrl;
-          const highResUrl = result.highResProfileUrl || profileUrl;
-          const gender = result.gender || null;
-
-          document.querySelectorAll(`.person-placeholder[data-name-key="${CSS.escape(nameKey)}"]`).forEach(ph => {
-            const parentCard = ph.closest('.person-card');
-            if (parentCard) {
-              if (gender) parentCard.dataset.gender = gender;
-              if (result.tmdbId) parentCard.dataset.tmdbId = result.tmdbId;
-              if (profileUrl) parentCard.dataset.profileUrl = profileUrl;
-              if (highResUrl) parentCard.dataset.highResUrl = highResUrl;
-            }
-
-            if (profileUrl) {
-              const img = document.createElement('img');
-              img.src = currentViewMode === 'grid' ? highResUrl : profileUrl;
-              img.alt = result.name || '';
-              img.className = currentViewMode === 'grid' ? 'person-grid-photo' : 'person-photo';
-              img.loading = 'lazy';
-              img.onerror = () => {
-                img.replaceWith(ph.cloneNode(true));
-              };
-              ph.replaceWith(img);
-            }
-          });
+    const cards = document.querySelectorAll('.person-card');
+    cards.forEach(card => {
+      const ph = card.querySelector('.person-placeholder');
+      if (ph && !card.dataset.loadingState) {
+        card.dataset.loadingState = 'pending';
+        if (photoObserver) {
+          photoObserver.observe(card);
         }
-      } catch (err) {
-        if (err.rateLimited) {
-          const delay = (err.retryAfter || 1) * 1000;
-          await new Promise(r => setTimeout(r, delay));
+      }
+    });
+
+    cards.forEach(card => {
+      if (card.dataset.loadingState === 'pending') {
+        addToPhotoQueue(card, false);
+      }
+    });
+
+    processPhotoQueue();
+  }
+
+  function addToPhotoQueue(card, priority = false) {
+    if (!card || card.dataset.loadingState !== 'pending') return;
+    const idx = photoQueue.indexOf(card);
+    if (idx !== -1) photoQueue.splice(idx, 1);
+
+    if (priority) {
+      photoQueue.unshift(card);
+    } else {
+      photoQueue.push(card);
+    }
+  }
+
+  async function processPhotoQueue() {
+    if (!tmdbKey || activeRequests.size >= CONCURRENCY_LIMIT || photoQueue.length === 0) return;
+
+    while (activeRequests.size < CONCURRENCY_LIMIT && photoQueue.length > 0) {
+      const card = photoQueue.shift();
+      if (!card || card.dataset.loadingState !== 'pending') continue;
+
+      card.dataset.loadingState = 'loading';
+      activeRequests.add(card);
+
+      fetchSingleCardPhoto(card).finally(() => {
+        activeRequests.delete(card);
+        if (photoObserver) photoObserver.unobserve(card);
+        processPhotoQueue();
+      });
+    }
+  }
+
+  async function fetchSingleCardPhoto(card) {
+    const ph = card.querySelector('.person-placeholder');
+    if (!ph) return;
+
+    const nameKey = ph.dataset.nameKey;
+    const name = card.dataset.name || nameKey;
+    const nmId = card.dataset.nmId || null;
+
+    try {
+      const result = await globalThis.ImmersiveTmdb.resolvePersonByImdbId(
+        nmId, name, tmdbKey, null
+      );
+
+      if (result) {
+        card.dataset.loadingState = 'done';
+        const profileUrl = result.profileUrl;
+        const highResUrl = result.highResProfileUrl || profileUrl;
+        const gender = result.gender || null;
+
+        if (gender) card.dataset.gender = gender;
+        if (result.tmdbId) card.dataset.tmdbId = result.tmdbId;
+        if (profileUrl) card.dataset.profileUrl = profileUrl;
+        if (highResUrl) card.dataset.highResUrl = highResUrl;
+
+        // Replace placeholders across all matching cards in DOM
+        document.querySelectorAll(`.person-placeholder[data-name-key="${CSS.escape(nameKey)}"]`).forEach(matchingPh => {
+          const matchingCard = matchingPh.closest('.person-card');
+          if (matchingCard) {
+            matchingCard.dataset.loadingState = 'done';
+            if (gender) matchingCard.dataset.gender = gender;
+            if (result.tmdbId) matchingCard.dataset.tmdbId = result.tmdbId;
+            if (profileUrl) matchingCard.dataset.profileUrl = profileUrl;
+            if (highResUrl) matchingCard.dataset.highResUrl = highResUrl;
+          }
+
+          if (profileUrl) {
+            const img = document.createElement('img');
+            img.src = currentViewMode === 'grid' ? highResUrl : profileUrl;
+            img.alt = result.name || '';
+            img.className = currentViewMode === 'grid' ? 'person-grid-photo' : 'person-photo';
+            img.loading = 'lazy';
+            img.onerror = () => {
+              img.replaceWith(matchingPh.cloneNode(true));
+            };
+            matchingPh.replaceWith(img);
+          }
+        });
+
+        // If gender filter active, update filter visibility
+        if (currentGenderFilter !== 'all') {
+          filterVisibleCards();
         }
-        if (err.authFailed) return;
+      } else {
+        card.dataset.loadingState = 'failed';
+      }
+    } catch (err) {
+      if (err && err.rateLimited) {
+        card.dataset.loadingState = 'pending';
+        addToPhotoQueue(card, false);
+        await sleep((err.retryAfter || 1) * 1000);
+      } else {
+        card.dataset.loadingState = 'failed';
       }
     }
   }
