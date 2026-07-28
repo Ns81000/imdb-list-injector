@@ -16,8 +16,13 @@ import { resolveImdb } from "@/lib/tmdb.functions";
 import { useMode } from "@/hooks/use-mode";
 import { parseRating, primaryYear } from "@/lib/utils";
 import type { Movie } from "@/types";
+import { requireAuth } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/credits")({
+  // Finding #6: Check auth before component mount
+  beforeLoad: async () => {
+    await requireAuth();
+  },
   head: () => ({
     meta: [
       { title: "Credits — Zoom Out" },
@@ -32,6 +37,14 @@ export const Route = createFileRoute("/credits")({
       },
     ],
   }),
+  // Finding #5: Add loader to prefetch credits data during route transition
+  loader: async ({ context }) => {
+    // Prefetch for default mode "watching"
+    await context.queryClient.ensureQueryData({
+      queryKey: ["movies", "watching"],
+      queryFn: () => listMovies({ data: { mode: "watching" } }),
+    });
+  },
   component: () => (
     <AuthGate>
       <CreditsPage />

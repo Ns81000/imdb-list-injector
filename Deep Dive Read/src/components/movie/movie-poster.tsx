@@ -33,6 +33,14 @@ export function MoviePoster({
 
   const color = hashBrand(title);
 
+  // TMDB poster dimensions (2:3 aspect ratio)
+  const dimensions = {
+    w185: { width: 185, height: 278 },
+    w342: { width: 342, height: 513 },
+    w780: { width: 780, height: 1170 },
+  };
+  const { width, height } = dimensions[size];
+
   if (!url || error) {
     return (
       <div
@@ -56,6 +64,8 @@ export function MoviePoster({
     <img
       src={url}
       alt={title}
+      width={width}
+      height={height}
       loading="lazy"
       decoding="async"
       onError={() => setError(true)}

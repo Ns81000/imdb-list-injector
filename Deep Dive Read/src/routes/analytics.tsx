@@ -22,8 +22,13 @@ import {
 } from "@/components/charts";
 import { listMovies } from "@/lib/data.functions";
 import { useMode } from "@/hooks/use-mode";
+import { requireAuth } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/analytics")({
+  // Finding #6: Check auth before component mount
+  beforeLoad: async () => {
+    await requireAuth();
+  },
   head: () => ({
     meta: [
       { title: "Analytics — Zoom Out" },
@@ -32,6 +37,14 @@ export const Route = createFileRoute("/analytics")({
       { property: "og:description", content: "Deep charts across your Zoom Out library." },
     ],
   }),
+  // Finding #5: Add loader to prefetch analytics data during route transition
+  loader: async ({ context }) => {
+    // Prefetch for default mode "watching"
+    await context.queryClient.ensureQueryData({
+      queryKey: ["movies", "watching"],
+      queryFn: () => listMovies({ data: { mode: "watching" } }),
+    });
+  },
   component: () => (
     <AuthGate>
       <AnalyticsPage />

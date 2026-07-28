@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { memo, useMemo } from "react";
 import type { List, Movie } from "@/types";
 import { relativeTime, parseRating, hashBrand, cn, type BrandColor } from "@/lib/utils";
 import { Film, ChevronRight } from "lucide-react";
@@ -46,18 +47,22 @@ const brandAccentMap: Record<BrandColor, { badge: string; textHover: string; bar
   },
 };
 
-export function ListCard({ list, movies = [] }: ListCardProps) {
+export const ListCard = memo(function ListCard({ list, movies = [] }: ListCardProps) {
   const brand = hashBrand(list.name);
   const style = brandAccentMap[brand];
 
-  // 5 rating buckets 2/4/6/8/10
-  const bins = [0, 0, 0, 0, 0];
-  for (const m of movies) {
-    const r = parseRating(m.rating);
-    if (r === null) continue;
-    const idx = Math.min(4, Math.max(0, Math.floor(r / 2)));
-    bins[idx]++;
-  }
+  // 5 rating buckets 2/4/6/8/10 - memoized to avoid recalculation on every render
+  const bins = useMemo(() => {
+    const b = [0, 0, 0, 0, 0];
+    for (const m of movies) {
+      const r = parseRating(m.rating);
+      if (r === null) continue;
+      const idx = Math.min(4, Math.max(0, Math.floor(r / 2)));
+      b[idx]++;
+    }
+    return b;
+  }, [movies]);
+  
   const maxBin = Math.max(1, ...bins);
 
   return (
@@ -132,4 +137,4 @@ export function ListCard({ list, movies = [] }: ListCardProps) {
       </div>
     </Link>
   );
-}
+});

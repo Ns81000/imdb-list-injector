@@ -10,8 +10,13 @@ import { Pill } from "@/components/ui/pill";
 import { SearchIcon } from "@/components/icons";
 import { listMovies, listLists } from "@/lib/data.functions";
 import { useMode } from "@/hooks/use-mode";
+import { requireAuth } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/search")({
+  // Finding #6: Check auth before component mount
+  beforeLoad: async () => {
+    await requireAuth();
+  },
   head: () => ({
     meta: [
       { title: "Search — Zoom Out" },
@@ -26,6 +31,20 @@ export const Route = createFileRoute("/search")({
       },
     ],
   }),
+  // Finding #5: Add loader to prefetch search data during route transition
+  loader: async ({ context }) => {
+    // Prefetch both movies and lists for default mode "watching"
+    await Promise.all([
+      context.queryClient.ensureQueryData({
+        queryKey: ["movies", "watching"],
+        queryFn: () => listMovies({ data: { mode: "watching" } }),
+      }),
+      context.queryClient.ensureQueryData({
+        queryKey: ["lists-paginated", "watching"],
+        queryFn: () => listMovies({ data: { mode: "watching" } }),
+      }),
+    ]);
+  },
   component: () => (
     <AuthGate>
       <SearchPage />

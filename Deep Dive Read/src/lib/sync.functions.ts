@@ -71,51 +71,64 @@ export async function applySyncPush(payload: SyncPushPayload) {
 
   let totalMovies = 0;
 
-  for (const list of payload.lists) {
-    const upsertRes = await supabaseAdmin.from("lists").upsert(
-      [
-        {
-          id: list.id,
-          name: list.name,
-          url: list.url ?? null,
-          movie_count: list.movieCount ?? list.movies.length,
-          last_refreshed: list.lastRefreshed ?? new Date().toISOString(),
-          mode,
-        },
-      ],
-      { onConflict: "id" },
-    );
-    if (upsertRes.error) throw upsertRes.error;
+  // Finding #17: Batch sync operations instead of serial upserts
+  // Collect all lists and movies, then perform 3 batched queries
 
-    if (list.movies.length) {
-      // Insert-first, delete-stale: keeps rows visible if insert fails.
-      const rows = list.movies.map((m) => ({
-        imdb_id: m.imdb_id,
-        list_id: list.id,
-        position: m.position ?? null,
-        type: m.type ?? null,
-        title: m.title,
-        year: m.year ?? null,
-        rating: m.rating ?? null,
-        votes: m.votes ?? null,
-        genre: m.genre ?? null,
-        content_rating: m.content_rating ?? null,
-        duration: m.duration ?? null,
-        description: m.description ?? null,
-        imdb_url: m.imdb_url ?? null,
-        keywords: m.keywords ?? null,
-        credits: m.credits ?? null,
-      }));
-      // Wipe then insert. Non-transactional (Supabase JS has no client-side tx),
-      // but we already validated a non-empty rows array.
-      const del = await supabaseAdmin.from("movies").delete().eq("list_id", list.id);
-      if (del.error) throw del.error;
-      const ins = await supabaseAdmin.from("movies").insert(rows);
-      if (ins.error) throw ins.error;
-      totalMovies += rows.length;
-    } else {
-      await supabaseAdmin.from("movies").delete().eq("list_id", list.id);
+  // 1. Batch upsert all lists
+  const listRows = payload.lists.map((list) => ({
+    id: list.id,
+    name: list.name,
+    url: list.url ?? null,
+    movie_count: list.movieCount ?? list.movies.length,
+    last_refreshed: list.lastRefreshed ?? new Date().toISOString(),
+    mode,
+  }));
+
+  if (listRows.length > 0) {
+    const upsertRes = await supabaseAdmin.from("lists").upsert(listRows, { onConflict: "id" });
+    if (upsertRes.error) throw upsertRes.error;
+  }
+
+  // 2. Collect all movie rows from all lists
+  const allMovieRows: any[] = [];
+  const listIdsWithMovies = new Set<string>();
+
+  for (const list of payload.lists) {
+    if (list.movies.length > 0) {
+      listIdsWithMovies.add(list.id);
+      for (const m of list.movies) {
+        allMovieRows.push({
+          imdb_id: m.imdb_id,
+          list_id: list.id,
+          position: m.position ?? null,
+          type: m.type ?? null,
+          title: m.title,
+          year: m.year ?? null,
+          rating: m.rating ?? null,
+          votes: m.votes ?? null,
+          genre: m.genre ?? null,
+          content_rating: m.content_rating ?? null,
+          duration: m.duration ?? null,
+          description: m.description ?? null,
+          imdb_url: m.imdb_url ?? null,
+          keywords: m.keywords ?? null,
+          credits: m.credits ?? null,
+        });
+      }
     }
+  }
+
+  // 3. Delete old movies for all lists being synced, then insert new movies in one batch
+  if (listIdsWithMovies.size > 0) {
+    const listIdsArray = Array.from(listIdsWithMovies);
+    const del = await supabaseAdmin.from("movies").delete().in("list_id", listIdsArray);
+    if (del.error) throw del.error;
+  }
+
+  if (allMovieRows.length > 0) {
+    const ins = await supabaseAdmin.from("movies").insert(allMovieRows);
+    if (ins.error) throw ins.error;
+    totalMovies = allMovieRows.length;
   }
 
   // Delete lists in this mode that aren't in the payload (cascade removes movies).

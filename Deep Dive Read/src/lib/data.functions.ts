@@ -33,6 +33,32 @@ export const listLists = createServerFn({ method: "GET" })
     return (res.data ?? []) as unknown as List[];
   });
 
+// Finding #4: Paginated version of listLists with 30-item batches
+export const listListsPaginated = createServerFn({ method: "GET" })
+  .inputValidator((data) =>
+    z
+      .object({
+        mode: z.enum(["watching", "watched"]),
+        offset: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(100).default(30),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }): Promise<{ lists: List[]; hasMore: boolean }> => {
+    await requireAuth();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const res = await supabaseAdmin
+      .from("lists")
+      .select("id,name,url,movie_count,last_refreshed,mode,created_at,updated_at")
+      .eq("mode", data.mode)
+      .order("last_refreshed", { ascending: false, nullsFirst: false })
+      .range(data.offset, data.offset + data.limit - 1);
+    if (res.error) throw res.error;
+    const lists = (res.data ?? []) as unknown as List[];
+    const hasMore = lists.length === data.limit;
+    return { lists, hasMore };
+  });
+
 export const listMovies = createServerFn({ method: "GET" })
   .inputValidator((data) => modeSchema.parse(data))
   .handler(async ({ data }): Promise<Movie[]> => {
@@ -130,14 +156,39 @@ export const getStorageStats = createServerFn({ method: "GET" }).handler(async (
 export const exportAllData = createServerFn({ method: "GET" }).handler(async () => {
   await requireAuth();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const [lists, movies] = await Promise.all([
-    supabaseAdmin.from("lists").select("*"),
-    supabaseAdmin.from("movies").select("*"),
-  ]);
+  
+  // Finding #23: Fetch data in chunks to avoid timeout/memory issues on large datasets
+  const CHUNK_SIZE = 1000;
+  
+  // Fetch all lists (usually small, no chunking needed)
+  const listsRes = await supabaseAdmin.from("lists").select("*");
+  if (listsRes.error) throw listsRes.error;
+  
+  // Fetch movies in chunks
+  const allMovies: any[] = [];
+  let offset = 0;
+  let hasMore = true;
+  
+  while (hasMore) {
+    const moviesRes = await supabaseAdmin
+      .from("movies")
+      .select("*")
+      .range(offset, offset + CHUNK_SIZE - 1);
+    
+    if (moviesRes.error) throw moviesRes.error;
+    
+    const chunk = moviesRes.data ?? [];
+    allMovies.push(...chunk);
+    
+    // If we got fewer than CHUNK_SIZE rows, we've reached the end
+    hasMore = chunk.length === CHUNK_SIZE;
+    offset += CHUNK_SIZE;
+  }
+  
   return {
     exported_at: new Date().toISOString(),
-    lists: lists.data ?? [],
-    movies: movies.data ?? [],
+    lists: listsRes.data ?? [],
+    movies: allMovies,
   };
 });
 

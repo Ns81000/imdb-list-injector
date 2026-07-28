@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { memo } from "react";
 import type { Movie } from "@/types";
 import { MoviePoster } from "./movie-poster";
 import { Pill } from "../ui/pill";
@@ -7,7 +8,7 @@ import { parseGenres, parseRating, primaryYear } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { resolveImdb } from "@/lib/tmdb.functions";
 
-export function MovieCard({ movie }: { movie: Movie }) {
+export const MovieCard = memo(function MovieCard({ movie }: { movie: Movie }) {
   const genres = parseGenres(movie.genre).slice(0, 2);
   const rating = parseRating(movie.rating);
   const year = primaryYear(movie.year);
@@ -50,4 +51,4 @@ export function MovieCard({ movie }: { movie: Movie }) {
       </div>
     </Link>
   );
-}
+});

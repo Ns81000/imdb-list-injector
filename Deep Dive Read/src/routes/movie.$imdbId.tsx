@@ -11,8 +11,13 @@ import { getMovie } from "@/lib/data.functions";
 import { resolveImdb } from "@/lib/tmdb.functions";
 import { backdropUrl, parseGenres, parseRating, parseVotes, primaryYear } from "@/lib/utils";
 import { ChevronLeftIcon, ExternalIcon, StarIcon } from "@/components/icons";
+import { requireAuth } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/movie/$imdbId")({
+  // Finding #6: Check auth before component mount
+  beforeLoad: async () => {
+    await requireAuth();
+  },
   head: ({ params }) => ({
     meta: [
       { title: `${params.imdbId} — Zoom Out` },
@@ -21,6 +26,20 @@ export const Route = createFileRoute("/movie/$imdbId")({
       { property: "og:description", content: "Movie details from your Zoom Out library." },
     ],
   }),
+  // Finding #5: Add loader to prefetch movie data during route transition
+  loader: async ({ context, params }) => {
+    // Prefetch both movie data and TMDB data in parallel
+    await Promise.all([
+      context.queryClient.ensureQueryData({
+        queryKey: ["movie", params.imdbId],
+        queryFn: () => getMovie({ data: { imdbId: params.imdbId } }),
+      }),
+      context.queryClient.ensureQueryData({
+        queryKey: ["tmdb-find", params.imdbId],
+        queryFn: () => resolveImdb({ data: { imdbId: params.imdbId } }),
+      }),
+    ]);
+  },
   component: () => (
     <AuthGate>
       <MovieDetail />

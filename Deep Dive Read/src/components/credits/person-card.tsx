@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { profileUrl, hashBrand, initials } from "@/lib/utils";
 import type { BrandColor } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
+import { memo } from "react";
 import { searchPerson } from "@/lib/tmdb.functions";
 
 const bg: Record<BrandColor, string> = {
@@ -13,7 +14,7 @@ const bg: Record<BrandColor, string> = {
   "brand-mint": "bg-[var(--brand-mint)]",
 };
 
-export function PersonAvatar({ name, size = 48 }: { name: string; size?: number }) {
+export const PersonAvatar = memo(function PersonAvatar({ name, size = 48 }: { name: string; size?: number }) {
   const [err, setErr] = useState(false);
   const q = useQuery({
     queryKey: ["tmdb-person", name],
@@ -48,7 +49,7 @@ export function PersonAvatar({ name, size = 48 }: { name: string; size?: number 
       style={{ width: size, height: size }}
     />
   );
-}
+});
 
 interface PersonCardProps {
   name: string;
@@ -56,7 +57,7 @@ interface PersonCardProps {
   onClick?: () => void;
 }
 
-export function PersonCard({ name, count, onClick }: PersonCardProps) {
+export const PersonCard = memo(function PersonCard({ name, count, onClick }: PersonCardProps) {
   return (
     <button
       type="button"
@@ -72,4 +73,4 @@ export function PersonCard({ name, count, onClick }: PersonCardProps) {
       </div>
     </button>
   );
-}
+});

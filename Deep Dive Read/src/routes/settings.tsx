@@ -12,8 +12,13 @@ import { changePassword, logout, getSessionInfo } from "@/lib/auth.functions";
 import { clearAllData, exportAllData, getStorageStats } from "@/lib/data.functions";
 import { relativeTime } from "@/lib/utils";
 import { statusColor, useSyncStatus } from "@/hooks/use-sync-status";
+import { requireAuth } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/settings")({
+  // Finding #6: Check auth before component mount
+  beforeLoad: async () => {
+    await requireAuth();
+  },
   head: () => ({
     meta: [
       { title: "Settings — Zoom Out" },

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { PageShell } from "@/components/layout/page-shell";
@@ -8,11 +8,16 @@ import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ListCard } from "@/components/library/list-card";
-import { listLists, listMovies } from "@/lib/data.functions";
+import { listListsPaginated } from "@/lib/data.functions";
 import { useMode } from "@/hooks/use-mode";
 import { SearchIcon } from "@/components/icons";
+import { requireAuth } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/library/")({
+  // Finding #6: Check auth before component mount
+  beforeLoad: async () => {
+    await requireAuth();
+  },
   head: () => ({
     meta: [
       { title: "Library — Zoom Out" },
@@ -21,6 +26,15 @@ export const Route = createFileRoute("/library/")({
       { property: "og:description", content: "Browse every list you've saved with Zoom Out." },
     ],
   }),
+  // Finding #5: Add loader to prefetch data during route transition
+  loader: async ({ context }) => {
+    // Note: Can't access mode here since it's from React context
+    // Prefetch for default mode "watching" - component will refetch if mode is different
+    await context.queryClient.ensureQueryData({
+      queryKey: ["lists-paginated", "watching"],
+      queryFn: () => listListsPaginated({ data: { mode: "watching", offset: 0, limit: 30 } }),
+    });
+  },
   component: () => (
     <AuthGate>
       <LibraryPage />
@@ -30,29 +44,26 @@ export const Route = createFileRoute("/library/")({
 
 function LibraryPage() {
   const { mode } = useMode();
-  const listsQ = useQuery({
-    queryKey: ["lists", mode],
-    queryFn: () => listLists({ data: { mode } }),
-  });
-  const moviesQ = useQuery({
-    queryKey: ["movies", mode],
-    queryFn: () => listMovies({ data: { mode } }),
+  const listsQ = useInfiniteQuery({
+    queryKey: ["lists-paginated", mode],
+    queryFn: ({ pageParam = 0 }) =>
+      listListsPaginated({ data: { mode, offset: pageParam, limit: 30 } }),
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.hasMore) return undefined;
+      return allPages.length * 30; // offset for next page
+    },
+    initialPageParam: 0,
   });
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("recent");
 
-  const moviesByList = useMemo(() => {
-    const map = new Map<string, typeof moviesQ.data>();
-    for (const m of moviesQ.data ?? []) {
-      const arr = (map.get(m.list_id) ?? []) as any[];
-      arr.push(m);
-      map.set(m.list_id, arr as any);
-    }
-    return map;
-  }, [moviesQ.data]);
+  // Flatten all pages into single list
+  const allLists = useMemo(() => {
+    return listsQ.data?.pages.flatMap((page) => page.lists) ?? [];
+  }, [listsQ.data]);
 
   const filtered = useMemo(() => {
-    const list = [...(listsQ.data ?? [])].filter((l) =>
+    const list = [...allLists].filter((l) =>
       l.name.toLowerCase().includes(q.toLowerCase()),
     );
     switch (sort) {
@@ -75,7 +86,7 @@ function LibraryPage() {
         );
     }
     return list;
-  }, [listsQ.data, q, sort]);
+  }, [allLists, q, sort]);
 
   return (
     <PageShell>
@@ -124,11 +135,24 @@ function LibraryPage() {
           action={q ? { label: "Clear search", onClick: () => setQ("") } : undefined}
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((l) => (
-            <ListCard key={l.id} list={l} movies={(moviesByList.get(l.id) ?? []) as any} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((l) => (
+              <ListCard key={l.id} list={l} />
+            ))}
+          </div>
+          {listsQ.hasNextPage && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={() => listsQ.fetchNextPage()}
+                disabled={listsQ.isFetchingNextPage}
+                className="rounded-full bg-[var(--surface-strong)] px-6 py-2.5 text-sm font-semibold text-[var(--ink)] transition-all hover:bg-[var(--surface-stronger)] disabled:opacity-50"
+              >
+                {listsQ.isFetchingNextPage ? "Loading..." : "Load more lists"}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </PageShell>
   );

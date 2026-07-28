@@ -17,8 +17,13 @@ import {
   parseRating,
   primaryYear,
 } from "@/lib/utils";
+import { requireAuth } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/library/$listId")({
+  // Finding #6: Check auth before component mount
+  beforeLoad: async () => {
+    await requireAuth();
+  },
   head: ({ params }) => ({
     meta: [
       { title: `List ${params.listId} — Zoom Out` },
@@ -27,6 +32,13 @@ export const Route = createFileRoute("/library/$listId")({
       { property: "og:description", content: "Movies in this saved IMDb list." },
     ],
   }),
+  // Finding #5: Add loader to prefetch list data during route transition
+  loader: async ({ context, params }) => {
+    await context.queryClient.ensureQueryData({
+      queryKey: ["list", params.listId],
+      queryFn: () => getList({ data: { listId: params.listId } }),
+    });
+  },
   component: () => (
     <AuthGate>
       <ListDetail />

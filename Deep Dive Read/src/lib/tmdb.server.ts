@@ -45,12 +45,23 @@ function tmdbHeaders(): { auth: HeadersInit; keyParam: string | null } {
   return { auth: {}, keyParam: key };
 }
 
-async function tmdbFetch(pathAndQuery: string): Promise<Response> {
+async function tmdbFetch(pathAndQuery: string, retryCount = 0): Promise<Response> {
   const { auth, keyParam } = tmdbHeaders();
   const url = new URL(`https://api.themoviedb.org/3${pathAndQuery}`);
   if (keyParam) url.searchParams.set("api_key", keyParam);
   if (!url.searchParams.has("language")) url.searchParams.set("language", "en-US");
-  return fetch(url.toString(), { headers: { accept: "application/json", ...auth } });
+  
+  const response = await fetch(url.toString(), { headers: { accept: "application/json", ...auth } });
+  
+  // Finding #18: Handle 429 rate limit with exponential backoff retry
+  if (response.status === 429 && retryCount < 3) {
+    const retryAfter = Number(response.headers.get("retry-after") ?? 1);
+    const delay = Math.min(retryAfter * 1000, 2 ** retryCount * 1000); // exponential backoff, cap at retry-after
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    return tmdbFetch(pathAndQuery, retryCount + 1);
+  }
+  
+  return response;
 }
 
 export interface TmdbResolveResult {

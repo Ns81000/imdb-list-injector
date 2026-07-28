@@ -2,14 +2,27 @@
 import { createMiddleware } from "@tanstack/react-start";
 import { supabase } from "./client";
 
+// Cache session token to avoid calling getSession() on every server function invocation
+// Token is cached for 1 minute, then refreshed
+let cachedToken: { token: string | null; expires: number } | null = null;
+
 // Must be registered as a global `functionMiddleware` in `src/start.ts`; otherwise
 // the browser never attaches the bearer token to serverFn RPCs.
 export const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
   async ({ next }) => {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    const now = Date.now();
+    
+    // Check if we have a valid cached token
+    if (!cachedToken || cachedToken.expires < now) {
+      const { data } = await supabase.auth.getSession();
+      cachedToken = {
+        token: data.session?.access_token ?? null,
+        expires: now + 60_000, // Cache for 1 minute
+      };
+    }
+    
     return next({
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: cachedToken.token ? { Authorization: `Bearer ${cachedToken.token}` } : {},
     });
   },
 );

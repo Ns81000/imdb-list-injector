@@ -23,8 +23,13 @@ import {
 import { Film, Star, Layers, Clock, Hash, RefreshCw, ChevronRight } from "lucide-react";
 import { Pill } from "@/components/ui/pill";
 import type { BrandColor } from "@/lib/utils";
+import { requireAuth } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/")({
+  // Finding #6: Check auth before component mount
+  beforeLoad: async () => {
+    await requireAuth();
+  },
   head: () => ({
     meta: [
       { title: "Dashboard — Zoom Out" },
