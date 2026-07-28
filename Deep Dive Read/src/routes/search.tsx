@@ -40,8 +40,8 @@ export const Route = createFileRoute("/search")({
         queryFn: () => listMovies({ data: { mode: "watching" } }),
       }),
       context.queryClient.ensureQueryData({
-        queryKey: ["lists-paginated", "watching"],
-        queryFn: () => listMovies({ data: { mode: "watching" } }),
+        queryKey: ["lists", "watching"],
+        queryFn: () => listLists({ data: { mode: "watching" } }),
       }),
     ]);
   },

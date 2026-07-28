@@ -29,10 +29,12 @@ export const Route = createFileRoute("/library/")({
   // Finding #5: Add loader to prefetch data during route transition
   loader: async ({ context }) => {
     // Note: Can't access mode here since it's from React context
-    // Prefetch for default mode "watching" - component will refetch if mode is different
-    await context.queryClient.ensureQueryData({
+    // Prefetch first page for default mode "watching" using infinite query structure
+    await context.queryClient.prefetchInfiniteQuery({
       queryKey: ["lists-paginated", "watching"],
-      queryFn: () => listListsPaginated({ data: { mode: "watching", offset: 0, limit: 30 } }),
+      queryFn: ({ pageParam = 0 }) =>
+        listListsPaginated({ data: { mode: "watching", offset: pageParam, limit: 30 } }),
+      initialPageParam: 0,
     });
   },
   component: () => (
